@@ -1,0 +1,53 @@
+# Prepares the app signing key for Google Play ("Use Play App Signing" → "Export and upload
+# a key from Java keystore"), so the Play version is signed with the same key as the APK
+# on GitHub and TVs can update from one to the other.
+#
+# Run it from Actions → "Play signing key" → Run workflow, pasting the encryption public key
+# that the Play Console shows (download encryption_public_key.pem and paste its contents;
+# line breaks don't matter). Then download the "play-signing-key" artifact and upload the
+# output.zip in it to the Play Console. The zip is encrypted for Google: only Play can read it.
+name: Play signing key
+
+on:
+  workflow_dispatch:
+    inputs:
+      encryption_key:
+        description: Contents of encryption_public_key.pem from the Play Console
+        required: true
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Encrypt the signing key for Google Play
+        env:
+          ENCRYPTION_KEY: ${{ inputs.encryption_key }}
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          cd "$RUNNER_TEMP"
+          # The pasted key back into PEM form, whatever happened to its line breaks
+          BODY=$(printf '%s' "$ENCRYPTION_KEY" | sed -e 's/-----[A-Z ]*-----//g' | tr -d ' \r\n')
+          { echo '-----BEGIN PUBLIC KEY-----'; printf '%s\n' "$BODY" | fold -w 64; echo '-----END PUBLIC KEY-----'; } > encryption_public_key.pem
+          echo "$KEYSTORE_BASE64" | base64 -d > release.p12
+          # PEPK reads a Java keystore: the same key, converted from PKCS12
+          keytool -importkeystore -noprompt -srckeystore release.p12 -srcstoretype pkcs12 -srcstorepass "$KEYSTORE_PASSWORD" \
+            -destkeystore release.jks -deststoretype jks -deststorepass "$KEYSTORE_PASSWORD" -destkeypass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS"
+          curl -sSfL -o pepk.jar https://www.gstatic.com/play-apps-publisher-rapid/signing-tool/prod/pepk.jar
+          java -jar pepk.jar --keystore=release.jks --alias="$KEY_ALIAS" --output="$GITHUB_WORKSPACE/output.zip" \
+            --include-cert --rsa-aes-encryption --encryption-key-path=encryption_public_key.pem \
+            --keystore-pass="$KEYSTORE_PASSWORD" --key-pass="$KEYSTORE_PASSWORD"
+          rm -f release.p12 release.jks
+          ls -la "$GITHUB_WORKSPACE/output.zip"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: play-signing-key
+          path: output.zip
+          retention-days: 3

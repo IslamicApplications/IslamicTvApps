@@ -1,5 +1,6 @@
-# Builds the Android TV app (android/) and publishes the APK as a GitHub release, so a
-# TV can install it from a fixed link:
+# Builds the Android TV app (android/): the APK, published as a GitHub release so a TV can
+# install it from a fixed link, and the app bundle (.aab) to upload to Google Play
+# (play-store/README.md):
 #   https://github.com/IslamicApplications/IslamicTvApps/releases/latest/download/DailyHadithAzan-TV.apk
 # The app shows https://islamicapplications.github.io/IslamicTvApps/, so changes to the
 # web app reach it without a new APK; a new APK is only needed when android/ changes.
@@ -51,7 +52,7 @@ jobs:
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-        run: gradle -p android assembleRelease --no-daemon
+        run: gradle -p android assembleRelease bundleRelease --no-daemon
 
       - name: Check the signature
         run: |
@@ -61,17 +62,20 @@ jobs:
           echo "APK: $APK  apksigner: $APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
           cp "$APK" DailyHadithAzan-TV.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab DailyHadithAzan-TV.aab
 
       - uses: actions/upload-artifact@v7
         with:
           name: DailyHadithAzan-TV-${{ env.VERSION_NAME }}
-          path: DailyHadithAzan-TV.apk
+          path: |
+            DailyHadithAzan-TV.apk
+            DailyHadithAzan-TV.aab
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "android-v$VERSION_NAME" DailyHadithAzan-TV.apk \
+          gh release create "android-v$VERSION_NAME" DailyHadithAzan-TV.apk DailyHadithAzan-TV.aab \
             --title "Android TV app $VERSION_NAME" \
             --latest \
-            --notes "Install on Google TV / Android TV: see the README (Android TV app). Download: DailyHadithAzan-TV.apk below, or always the newest at https://github.com/${{ github.repository }}/releases/latest/download/DailyHadithAzan-TV.apk"
+            --notes "Install on Google TV / Android TV: see the README (Android TV app). Download: DailyHadithAzan-TV.apk below, or always the newest at https://github.com/${{ github.repository }}/releases/latest/download/DailyHadithAzan-TV.apk. For Google Play, upload DailyHadithAzan-TV.aab (play-store/README.md)."
