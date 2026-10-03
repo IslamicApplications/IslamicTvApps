@@ -1,0 +1,92 @@
+# Keeps prayer times, Iqamah, Jumu'ah and Hijri offsets in step with awqat.com.au and
+# with the timetables mosques publish on their own websites (Preston Mosque, isv.org.au):
+# re-syncs every day and redeploys GitHub Pages when anything changed.
+name: Sync prayer times
+
+on:
+  schedule:
+    - cron: '0 16 * * *' # 2–3 am in Melbourne
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-prayer-times
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Each source on its own: one site being down doesn't hold back the other
+      # (a failed download leaves its data file as it was)
+      - name: Download from awqat.com.au
+        id: awqat
+        continue-on-error: true
+        run: npm run awqat:data
+
+      - name: Download mosque timetables (isv.org.au)
+        id: mosques
+        continue-on-error: true
+        run: npm run mosques:data
+
+      - name: Check for changes
+        id: changes
+        run: |
+          FILES="src/shared/data/awqat.json src/shared/vendor src/shared/data/mosqueTimetables.json"
+          if git diff --quiet -- $FILES; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Prayer time data unchanged."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git --no-pager diff --stat -- $FILES
+          fi
+
+      - name: Test with the new data
+        if: steps.changes.outputs.changed == 'true'
+        run: npm test
+
+      - name: Commit to main
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add src/shared/data/awqat.json src/shared/vendor src/shared/data/mosqueTimetables.json
+          git commit -m "Sync prayer times from awqat.com.au and mosque websites"
+          git push origin HEAD:main
+
+      - name: Build
+        if: steps.changes.outputs.changed == 'true'
+        run: npm run build
+
+      - name: Deploy to gh-pages
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git fetch origin gh-pages
+          git worktree add --detach ../ghp origin/gh-pages
+          cd ../ghp
+          git rm -rq .
+          cp -R "$GITHUB_WORKSPACE/dist/." .
+          printf '.DS_Store\n' > .gitignore
+          git add -A
+          git commit -m "Deploy: prayer times sync" || exit 0
+          git push origin HEAD:gh-pages
+
+      # Show the run as failed when a download failed, after deploying whatever did sync
+      - name: Report failed downloads
+        if: steps.awqat.outcome == 'failure' || steps.mosques.outcome == 'failure'
+        run: |
+          echo "awqat.com.au: ${{ steps.awqat.outcome }}, mosque timetables: ${{ steps.mosques.outcome }}"
+          exit 1

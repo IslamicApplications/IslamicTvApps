@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+/* Theme colours (see src/shared/theme.ts). Registered as colours so a change of
+   theme, or of the time of day, fades instead of jumping. Defaults: Obsidian. */
+@property --bg-from { syntax: '<color>'; inherits: true; initial-value: #06080e; }
+@property --bg-via { syntax: '<color>'; inherits: true; initial-value: #090d18; }
+@property --bg-to { syntax: '<color>'; inherits: true; initial-value: #040508; }
+@property --s0 { syntax: '<color>'; inherits: true; initial-value: #090b10; }
+@property --s1 { syntax: '<color>'; inherits: true; initial-value: #0e111a; }
+@property --s2 { syntax: '<color>'; inherits: true; initial-value: #11131c; }
+@property --s3 { syntax: '<color>'; inherits: true; initial-value: #151824; }
+@property --s4 { syntax: '<color>'; inherits: true; initial-value: #1a1f30; }
+@property --s5 { syntax: '<color>'; inherits: true; initial-value: #22293d; }
+
+:root {
+  --pattern: #d4af37;
+  transition: --bg-from 2s ease, --bg-via 2s ease, --bg-to 2s ease, --s0 2s ease, --s1 2s ease, --s2 2s ease, --s3 2s ease, --s4 2s ease, --s5 2s ease;
+}
+
+/* The theme's background gradient */
+.app-bg {
+  background-image: linear-gradient(135deg, var(--bg-from), var(--bg-via), var(--bg-to));
+}
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--s0);
+    color: var(--color-neutral-100);
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1, h2, h3, .font-serif {
+    font-family: 'Cormorant Garamond', 'Amiri', Georgia, serif;
+  }
+
+  .font-arabic {
+    font-family: 'Amiri', 'Noto Naskh Arabic', serif;
+  }
+
+  /* Arabic interface (العربية): Arabic fonts, and no letter-spacing, which breaks joined letters */
+  html[lang='ar'] body {
+    font-family: 'IBM Plex Sans Arabic', 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  html[lang='ar'] h1,
+  html[lang='ar'] h2,
+  html[lang='ar'] h3,
+  html[lang='ar'] .font-serif {
+    font-family: 'Amiri', 'Cormorant Garamond', serif;
+  }
+
+  html[lang='ar'] body * {
+    letter-spacing: normal !important;
+  }
+
+  /* Latin monospace fonts render Arabic badly; keep digits aligned instead */
+  html[lang='ar'] .font-mono {
+    font-family: 'IBM Plex Sans Arabic', ui-sans-serif, system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--pattern) 30%, transparent);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--pattern) 60%, transparent);
+}
+
+/* Monthly timetable: print only the table */
+@media print {
+  body.printing-timetable > *:not(.timetable-portal) {
+    display: none !important;
+  }
+  body.printing-timetable {
+    background: #fff !important;
+    overflow: visible !important;
+  }
+  body.printing-timetable .timetable-portal {
+    position: static !important;
+    overflow: visible !important;
+  }
+  @page {
+    margin: 12mm;
+  }
+}
