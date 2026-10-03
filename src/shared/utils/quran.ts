@@ -72,6 +72,35 @@ export function saveQuranSettings(settings: QuranSettings): void {
   } catch {}
 }
 
+/** Where the recitation was stopped or paused, so it can carry on from there. */
+export interface QuranPosition {
+  surah: number;
+  reciter: number;
+  /** Seconds into the surah's audio */
+  time: number;
+  /** Verse number, for carrying on with another reciter */
+  verse: number;
+}
+
+const POSITION_KEY = 'daily_hadith_tv_quran_position';
+
+export function getQuranPosition(): QuranPosition | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(POSITION_KEY) || 'null');
+    if (!saved || !(saved.surah >= 1 && saved.surah <= 114) || !(saved.time >= 0) || !(saved.verse >= 1)) return null;
+    return { surah: saved.surah, reciter: Number(saved.reciter), time: saved.time, verse: saved.verse };
+  } catch {
+    return null;
+  }
+}
+
+export function saveQuranPosition(position: QuranPosition | null): void {
+  try {
+    if (position) localStorage.setItem(POSITION_KEY, JSON.stringify(position));
+    else localStorage.removeItem(POSITION_KEY);
+  } catch {}
+}
+
 export interface VerseTiming {
   /** Verse number within the surah */
   verse: number;

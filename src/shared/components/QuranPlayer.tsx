@@ -2,15 +2,18 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { BookOpen, ChevronLeft, ChevronRight, Pause, Play, Repeat, Square, X } from 'lucide-react';
 import {
   BISMILLAH,
+  QuranPosition,
   QuranSettings,
   RECITERS,
   SURAHS,
   Surah,
   SurahText,
   VerseTiming,
+  getQuranPosition,
   getQuranSettings,
   loadRecitation,
   loadSurahText,
+  saveQuranPosition,
   saveQuranSettings,
   verseAt
 } from '../utils/quran';
@@ -30,7 +33,10 @@ export interface QuranPlayer {
   verseCount: number;
   progress: number;
   text: SurahText | null;
-  play: (surah?: number) => void;
+  /** Starts a surah, from the beginning or from a saved position in it */
+  play: (surah?: number, from?: QuranPosition | null) => void;
+  /** Carries on from where the recitation was paused or stopped */
+  resume: () => void;
   toggle: () => void;
   stop: () => void;
   next: () => void;
@@ -55,6 +61,24 @@ export function useQuranPlayer(): QuranPlayer {
   const timingsRef = useRef<VerseTiming[]>([]);
   // Increases with every play/stop, so a slow request for an older surah is ignored
   const tokenRef = useRef(0);
+  // The surah and reciter in the audio element, once its recitation has loaded
+  const loadedRef = useRef<{ surah: number; reciter: number } | null>(null);
+  const lastSaveRef = useRef(0);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const pausedForPrayerRef = useRef(pausedForPrayer);
+  pausedForPrayerRef.current = pausedForPrayer;
+  // Pause pressed (not the browser pausing a hidden page), so showing the page again doesn't play
+  const userPausedRef = useRef(false);
+
+  /** Remembers the exact place in the surah (also across reloads) */
+  const savePosition = () => {
+    const audio = audioRef.current;
+    const loaded = loadedRef.current;
+    if (!audio || !loaded || !(audio.currentTime > 0)) return;
+    const timing = timingsRef.current[verseAt(timingsRef.current, audio.currentTime * 1000)];
+    saveQuranPosition({ ...loaded, time: audio.currentTime, verse: timing ? timing.verse : 1 });
+  };
 
   const updateSettings = useCallback((changes: Partial<QuranSettings>) => {
     setSettings((current) => {
@@ -74,6 +98,8 @@ export function useQuranPlayer(): QuranPlayer {
 
   const stop = useCallback(() => {
     tokenRef.current++;
+    savePosition();
+    loadedRef.current = null;
     const audio = audioRef.current;
     if (audio) {
       audio.pause();
@@ -88,20 +114,23 @@ export function useQuranPlayer(): QuranPlayer {
   }, []);
 
   const play = useCallback(
-    async (surahNumber?: number) => {
+    async (surahNumber?: number, from?: QuranPosition | null) => {
       const n = surahNumber ?? settingsRef.current.surah;
+      if (from?.surah !== n) from = null;
       const reciter = settingsRef.current.reciter;
       const token = ++tokenRef.current;
       const audio = getAudio();
       audio.pause();
       // Without the old surah's src, Play pressed while this one loads can't resume the old one
       audio.removeAttribute('src');
+      loadedRef.current = null;
+      userPausedRef.current = false;
       updateSettings({ surah: n });
       setActive(true);
       setLoading(true);
       setError(null);
       setPausedForPrayer(false);
-      setVerseIndex(0);
+      setVerseIndex(from ? from.verse - 1 : 0);
       setProgress(0);
       setText(null);
       timingsRef.current = [];
@@ -112,7 +141,27 @@ export function useQuranPlayer(): QuranPlayer {
         const recitation = await loadRecitation(reciter, n);
         if (token !== tokenRef.current) return;
         timingsRef.current = recitation.timings;
+        loadedRef.current = { surah: n, reciter };
         audio.src = recitation.url;
+        // Same reciter: the exact second; another reciter: the start of the same verse
+        const start = !from
+          ? 0
+          : from.reciter === reciter
+          ? from.time
+          : (recitation.timings.find((t) => t.verse === from.verse)?.from ?? 0) / 1000;
+        if (start > 0) {
+          await new Promise<void>((resolve) => {
+            const done = () => {
+              audio.removeEventListener('loadedmetadata', done);
+              audio.removeEventListener('error', done);
+              resolve();
+            };
+            audio.addEventListener('loadedmetadata', done);
+            audio.addEventListener('error', done);
+          });
+          if (token !== tokenRef.current) return;
+          if (audio.duration && start < audio.duration - 1) audio.currentTime = start;
+        }
         await audio.play();
       } catch (err: any) {
         if (token !== tokenRef.current || err?.name === 'AbortError') return;
@@ -132,17 +181,32 @@ export function useQuranPlayer(): QuranPlayer {
     return repeat;
   };
 
+  const resume = useCallback(() => {
+    const surahNumber = settingsRef.current.surah;
+    play(surahNumber, getQuranPosition());
+  }, [play]);
+  const resumeRef = useRef(resume);
+  resumeRef.current = resume;
+
   const toggle = useCallback(() => {
     if (isRepeat('toggle')) return;
     const audio = audioRef.current;
-    if (!active || !audio?.src || error) {
-      play();
+    // Nothing loaded, or the stream broke (e.g. the connection dropped during a long pause): reload at the saved place
+    if (!active || !audio?.getAttribute('src') || error || audio.error) {
+      resume();
       return;
     }
     setPausedForPrayer(false);
-    if (audio.paused) audio.play().catch(() => {});
-    else audio.pause();
-  }, [active, error, play]);
+    if (audio.paused) {
+      userPausedRef.current = false;
+      audio.play().catch((err) => {
+        if (err?.name !== 'AbortError') resume();
+      });
+    } else {
+      userPausedRef.current = true;
+      audio.pause();
+    }
+  }, [active, error, resume]);
 
   const next = useCallback(() => {
     if (!isRepeat('next')) play(settingsRef.current.surah >= 114 ? 1 : settingsRef.current.surah + 1);
@@ -170,7 +234,10 @@ export function useQuranPlayer(): QuranPlayer {
       setPlaying(true);
       setLoading(false);
     };
-    const onPause = () => setPlaying(false);
+    const onPause = () => {
+      setPlaying(false);
+      savePosition();
+    };
     const onWaiting = () => setLoading(true);
     const onTime = () => {
       const ms = audio.currentTime * 1000;
@@ -178,8 +245,15 @@ export function useQuranPlayer(): QuranPlayer {
       setVerseIndex(timing ? timing.verse - 1 : 0);
       // Rounded so the screen re-renders only when the bar visibly moves
       if (audio.duration) setProgress(Math.round((audio.currentTime / audio.duration) * 1000) / 1000);
+      if (!audio.paused && Date.now() - lastSaveRef.current > 3000) {
+        lastSaveRef.current = Date.now();
+        savePosition();
+      }
     };
     const onEnded = () => {
+      // Finished: nothing to carry on from
+      loadedRef.current = null;
+      saveQuranPosition(null);
       if (settingsRef.current.continuous) {
         lastCommandRef.current = { name: '', at: 0 };
         nextRef.current();
@@ -188,6 +262,7 @@ export function useQuranPlayer(): QuranPlayer {
     };
     const onError = () => {
       if (!audio.getAttribute('src')) return;
+      savePosition();
       setLoading(false);
       setPlaying(false);
       setError('Could not load the recitation. Check the internet connection.');
@@ -206,6 +281,33 @@ export function useQuranPlayer(): QuranPlayer {
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('error', onError);
       audio.pause();
+    };
+  }, []);
+
+  // The TV or browser pausing the audio while the app is hidden (another app, the TV's
+  // screensaver, a minimised window): carry on from the same place when it's shown again
+  useEffect(() => {
+    let playingWhenHidden = false;
+    const onVisibility = () => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      if (document.visibilityState === 'hidden') {
+        playingWhenHidden = !audio.paused;
+        userPausedRef.current = false;
+        savePosition();
+        return;
+      }
+      if (!playingWhenHidden) return;
+      playingWhenHidden = false;
+      if (!audio.paused || userPausedRef.current || pausedForPrayerRef.current || !activeRef.current) return;
+      if (audio.getAttribute('src') && !audio.error) audio.play().catch(() => resumeRef.current());
+      else resumeRef.current();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', savePosition);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', savePosition);
     };
   }, []);
 
@@ -249,6 +351,7 @@ export function useQuranPlayer(): QuranPlayer {
     progress,
     text,
     play,
+    resume,
     toggle,
     stop,
     next,
@@ -390,6 +493,9 @@ export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose,
     currentRef.current?.scrollIntoView({ block: 'center' });
   }, []);
 
+  // Where the last recitation of the current surah stopped (e.g. before the app was closed)
+  const savedPosition = getQuranPosition();
+  const saved = savedPosition?.surah === settings.surah && savedPosition.time > 10 ? savedPosition : null;
   const reciterRowRef = useRef<HTMLDivElement>(null);
   const reciterIndex = Math.max(0, RECITERS.findIndex((r) => r.id === settings.reciter));
   const chooseReciter = (index: number) => {
@@ -462,6 +568,23 @@ export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose,
             <Repeat className="w-7 h-7" />
             <span>{t(settings.continuous ? 'Continue to the next surah' : 'Stop after this surah')}</span>
           </button>
+          {!player.active && saved && (
+            <button
+              onClick={() => {
+                player.resume();
+                onPlay();
+              }}
+              className="flex items-center gap-3 px-7 py-5 rounded-3xl bg-amber-500/20 text-amber-200 border border-amber-500/40 text-[24px] font-semibold cursor-pointer whitespace-nowrap"
+            >
+              <Play className="w-6 h-6" />
+              <span>
+                {t('Continue {surah} from verse {n}', {
+                  surah: i18n.isArabic ? SURAHS[saved.surah - 1].ar : SURAHS[saved.surah - 1].en,
+                  n: saved.verse
+                })}
+              </span>
+            </button>
+          )}
           {player.active && (
             <button
               onClick={onStop}
