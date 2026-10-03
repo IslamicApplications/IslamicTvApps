@@ -58,6 +58,8 @@ It shows the live site, so changes to the web app reach every TV without a new A
 
 The menu names differ a little between TV makes.
 
+**Google Play**: `play-store/README.md` has the step-by-step guide, the store listing text (English and Arabic), the answers for the Play Console forms, the graphics and screenshots. The privacy policy is at https://islamicapplications.github.io/IslamicTvApps/privacy.html.
+
 ## 🚀 Getting Started
 
 ```bash
