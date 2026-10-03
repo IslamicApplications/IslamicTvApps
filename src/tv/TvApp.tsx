@@ -8,8 +8,12 @@ import { TvStage } from './TvStage';
 import { loadDailyHadithOrBundled } from '../shared/utils/hadithLibrary';
 import { useDocumentLanguage, useI18n } from '../shared/i18n';
 
+// The Android TV app (android/) adds this to its user agent; it allows sound without a key press
+const IN_ANDROID_APP = typeof navigator !== 'undefined' && /\bIslamicTvApp\//.test(navigator.userAgent);
+
 export function TvApp() {
-  const [hasStarted, setHasStarted] = useState(false);
+  // In the Android app there's nothing to unlock: straight to the display (also after the TV turns on)
+  const [hasStarted, setHasStarted] = useState(IN_ANDROID_APP);
   const startButtonRef = useRef<HTMLButtonElement>(null);
 
   useSpatialNavigation();
@@ -23,6 +27,7 @@ export function TvApp() {
   // Download today's Hadith while the start screen is showing
   useEffect(() => {
     loadDailyHadithOrBundled(new Date());
+    if (IN_ANDROID_APP) unlockAudio();
   }, []);
 
   // The remote's OK press is the user gesture browsers require before
