@@ -48,7 +48,7 @@ Defined in `src/shared/theme.ts`:
 - **Appears in the TV's app list** with its own banner. Back on the remote closes dialogs and the Quran first.
 - If the internet isn't up yet, it shows "Waiting for the internet…" and tries again every 30 seconds.
 
-It shows the live site, so changes to the web app reach every TV without a new APK. `.github/workflows/android.yml` builds a new APK only when `android/` changes, signs it with the release key (repo secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`), and publishes it as the latest release.
+It shows the live site, so changes to the web app reach every TV without a new APK: each build writes `version.json`, and a TV running the app checks it every 15 minutes and reloads itself at a quiet moment (no Azan, Iqamah, prayer, Quran or open menu). `.github/workflows/android.yml` builds a new APK only when `android/` changes, signs it with the release key (repo secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`), and publishes it as the latest release.
 
 **Install on Google TV / Android TV**
 1. On the TV, install **Downloader** (by AFTVnews) from the Play Store.

@@ -50,6 +50,8 @@ import {
 } from '../utils/tvSettings';
 import { IslamicPattern, IslamicCornerOrnament } from './IslamicPattern';
 import { RamadanAccent } from './RamadanAccent';
+import { useReloadOnUpdate } from '../hooks/useReloadOnUpdate';
+import { IN_ANDROID_APP } from '../utils/androidApp';
 import { THEMES, nextTheme, useAppTheme } from '../theme';
 import { AppLogo } from './AppLogo';
 import {
@@ -196,6 +198,8 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
     quranWaitingForRef.current = null;
     quran.continueAfterPrayer();
   }, [clockDate, quran.pausedForPrayer]);
+  // In the Android app, a newer deployed version loads by itself at a quiet moment
+  useReloadOnUpdate(IN_ANDROID_APP, !prayerPhase && !isAzanPlaying() && !quran.active && !openDialog);
   // When the Iqamah countdown ends, the Iqamah plays once (only live: not when the TV is
   // switched on later in the prayer; off with Auto-Azan muted or the Iqamah turned off)
   useEffect(() => {

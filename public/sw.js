@@ -43,6 +43,8 @@ self.addEventListener('fetch', (event) => {
 
   // The Quran API and its audio streams go straight to the network (recitations are large, streamed in parts)
   if (url.hostname.endsWith('quran.com') || url.hostname.endsWith('quranicaudio.com')) return;
+  // The update check must always reach the network
+  if (url.pathname.endsWith('/version.json')) return;
 
   // Network-First for HTML navigation and JS/CSS assets so updates reflect immediately
   if (event.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {

@@ -7,9 +7,9 @@ import { useSpatialNavigation } from './useSpatialNavigation';
 import { TvStage } from './TvStage';
 import { loadDailyHadithOrBundled } from '../shared/utils/hadithLibrary';
 import { useDocumentLanguage, useI18n } from '../shared/i18n';
+// The Android app allows sound without a key press
+import { IN_ANDROID_APP } from '../shared/utils/androidApp';
 
-// The Android TV app (android/) adds this to its user agent; it allows sound without a key press
-const IN_ANDROID_APP = typeof navigator !== 'undefined' && /\bIslamicTvApp\//.test(navigator.userAgent);
 
 export function TvApp() {
   // In the Android app there's nothing to unlock: straight to the display (also after the TV turns on)
