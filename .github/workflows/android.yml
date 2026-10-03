@@ -55,9 +55,11 @@ jobs:
 
       - name: Check the signature
         run: |
-          APK=android/app/build/outputs/apk/release/app-release.apk
-          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
-          "$APKSIGNER" verify --print-certs "$APK" | grep -E "Signer #1 certificate (DN|SHA-256)"
+          ls -la android/app/build/outputs/apk/release/
+          APK=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          echo "APK: $APK  apksigner: $APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
           cp "$APK" DailyHadithAzan-TV.apk
 
       - uses: actions/upload-artifact@v7
