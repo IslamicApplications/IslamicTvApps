@@ -30,7 +30,10 @@ import {
   playAzan,
   stopAzan,
   getAzanPlayCount,
-  isAzanPlaying
+  isAzanPlaying,
+  IQAMAH_SOURCE,
+  playIqamah,
+  claimIqamahTrigger
 } from '../utils/azanAudio';
 import { speakHadith, stopSpeaking, isSpeaking } from '../utils/speech';
 import {
@@ -187,6 +190,17 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
       quran.pauseForPrayer();
     }
   }, [clockDate, quran.playing]);
+  // When the Iqamah countdown ends, the Iqamah plays once (only live: not when the TV is
+  // switched on later in the prayer; off with Auto-Azan muted or the Iqamah turned off)
+  useEffect(() => {
+    if (prayerPhase?.kind !== 'praying' || !azanSettings.autoAzanEnabled || azanSettings.iqamahSound === false) return;
+    const iqama = prayerData.iqamaMinutes[prayerPhase.prayer];
+    const [h, m] = prayerData.localTime24.split(':').map(Number);
+    if (iqama === undefined || h * 60 + m + clockDate.getSeconds() / 60 - iqama > 1) return;
+    if (!claimIqamahTrigger(`${prayerData.localDateKey}_${prayerPhase.prayer}`)) return;
+    quranRef.current.pauseForPrayer();
+    playIqamah();
+  }, [clockDate]);
   const [previewingRow, setPreviewingRow] = useState<string | null>(null);
   // playAzan() count of the running preview; a newer count means the real Azan took over
   const previewPlayRef = useRef(0);
@@ -489,15 +503,18 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
     updateAzanSettings(withPrayerMuezzin(azanSettings, prayer, next));
   };
 
-  const togglePreview = (row: string, muezzin: MuezzinId) => {
+  const togglePreview = (row: string, muezzin: MuezzinId | 'iqamah') => {
     if (previewingRow === row) {
       stopPreview();
       return;
     }
     setPreviewingRow(row);
-    playAzan(undefined, () => setPreviewingRow((current) => (current === row ? null : current)), muezzin);
+    const done = () => setPreviewingRow((current) => (current === row ? null : current));
+    if (muezzin === 'iqamah') playIqamah(done);
+    else playAzan(undefined, done, muezzin);
     previewPlayRef.current = getAzanPlayCount();
   };
+  const iqamahOn = azanSettings.iqamahSound !== false;
 
 
   const mosquesByState = getAllMosques()
@@ -944,7 +961,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
       {openDialog === 'azan' && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center px-[96px] py-[54px] bg-black/85 backdrop-blur-md">
           <div className="w-full max-w-[1300px] max-h-full flex flex-col rounded-[36px] bg-[var(--tv-dialog)] border border-amber-500/30 p-10 shadow-2xl">
-            <div className="flex items-center justify-between pb-6 mb-4 border-b border-white/10">
+            <div className="flex items-center justify-between pb-5 mb-3 border-b border-white/10">
               <div>
                 <h3 className="font-serif text-[48px] leading-tight font-bold text-white">{t('Azan Voices')}</h3>
                 <p className="text-[22px] text-neutral-400">{t('Press OK on Change to pick a voice for each prayer')}</p>
@@ -958,7 +975,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
               </button>
             </div>
 
-            <div className="flex flex-col gap-3 overflow-y-auto p-2">
+            <div className="flex flex-col gap-2 overflow-y-auto p-2">
               {[{ key: 'default', label: t('Default (all prayers)') }, ...AZAN_PRAYERS.map((p) => ({ key: p, label: i18n.prayer(p) }))].map((row, index) => {
                 const isDefaultRow = row.key === 'default';
                 const own = isDefaultRow ? null : azanSettings.prayerMuezzins?.[row.key as AzanPrayer];
@@ -967,7 +984,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
                 return (
                   <div
                     key={row.key}
-                    className={`flex items-center gap-6 px-7 py-4 rounded-3xl border ${
+                    className={`flex items-center gap-6 px-7 py-2.5 rounded-3xl border ${
                       isDefaultRow ? 'bg-amber-500/10 border-amber-500/30' : 'bg-white/5 border-white/10'
                     }`}
                   >
@@ -983,7 +1000,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
                     <button
                       ref={index === 0 ? azanDialogFirstButtonRef : undefined}
                       onClick={() => (isDefaultRow ? cycleDefaultMuezzin() : cyclePrayerMuezzin(row.key as AzanPrayer))}
-                      className="px-7 py-4 rounded-2xl bg-white/10 hover:bg-white/20 text-[22px] font-bold text-white cursor-pointer"
+                      className="px-7 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-[22px] font-bold text-white cursor-pointer"
                       title={t('Change {name} voice', { name: row.label })}
                     >
                       {t('Change')}
@@ -998,6 +1015,31 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
                   </div>
                 );
               })}
+              {/* The Iqamah, played when the Iqamah countdown ends */}
+              <div className="flex items-center gap-6 px-7 py-2.5 rounded-3xl border bg-emerald-500/10 border-emerald-500/30">
+                <div className="w-[300px] shrink-0 text-[28px] font-bold text-white">{t('Iqamah')}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[26px] font-semibold text-amber-200 truncate">{t(IQAMAH_SOURCE.name)}</div>
+                  <div className="text-[20px] text-neutral-400">{t(iqamahOn ? 'Plays when the Iqamah countdown ends' : 'Off')}</div>
+                </div>
+                <button
+                  onClick={() => updateAzanSettings({ ...azanSettings, iqamahSound: !iqamahOn })}
+                  aria-pressed={iqamahOn}
+                  className={`px-7 py-3 rounded-2xl text-[22px] font-bold cursor-pointer ${
+                    iqamahOn ? 'bg-emerald-500/25 text-emerald-200 hover:bg-emerald-500/35' : 'bg-white/10 text-neutral-300 hover:bg-white/20'
+                  }`}
+                  title={t('Turn the Iqamah on or off')}
+                >
+                  {t(iqamahOn ? 'On' : 'Off')}
+                </button>
+                <button
+                  onClick={() => togglePreview('iqamah', 'iqamah')}
+                  className={`p-4 rounded-2xl cursor-pointer ${previewingRow === 'iqamah' ? 'bg-rose-500 text-white' : 'bg-amber-500 text-neutral-950'}`}
+                  title={t(previewingRow === 'iqamah' ? 'Stop the Iqamah preview' : 'Listen to the Iqamah')}
+                >
+                  {previewingRow === 'iqamah' ? <Square className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current" />}
+                </button>
+              </div>
             </div>
           </div>
         </div>
