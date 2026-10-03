@@ -151,6 +151,8 @@ let chimeOscillators: OscillatorNode[] = [];
 let chimeEndTimer: ReturnType<typeof setTimeout> | null = null;
 // Increases with every playAzan() call, so a caller can tell whether its own Azan is still the one playing
 let playCount = 0;
+// The playCount of the last Iqamah, so closing the Azan popup doesn't cut it off
+let iqamahPlay = -1;
 
 export function getAzanPlayCount(): number {
   return playCount;
@@ -260,6 +262,7 @@ export function playIqamah(onEnd?: () => void): void {
   stopAzan();
   playCount += 1;
   const thisPlay = playCount;
+  iqamahPlay = thisPlay;
   const audio = getAzanElement();
   const isCurrent = () => playCount === thisPlay && activeAudio === audio;
   const finish = () => {
@@ -292,6 +295,12 @@ export function stopAzan(): void {
     activeAudio = null;
   }
   stopChime();
+}
+
+/** Stops the Azan, but not an Iqamah that has started since (the Azan popup can still be open then). */
+export function stopAdhan(): void {
+  if (iqamahPlay === playCount && activeAudio) return;
+  stopAzan();
 }
 
 function stopChime(): void {

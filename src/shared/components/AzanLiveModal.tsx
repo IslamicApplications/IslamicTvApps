@@ -3,7 +3,7 @@ import { IslamicPattern, IslamicCornerOrnament } from './IslamicPattern';
 import { Mosque } from '../utils/prayerTimes';
 import { Volume2, VolumeX, X, Sparkles, Building2, Bell, Check, Play, Square } from 'lucide-react';
 import { useI18n } from '../i18n';
-import { stopAzan } from '../utils/azanAudio';
+import { stopAdhan } from '../utils/azanAudio';
 import { speakDua, stopSpeaking, isSpeaking } from '../utils/speech';
 
 interface AzanLiveModalProps {
@@ -34,7 +34,7 @@ export const AzanLiveModal: React.FC<AzanLiveModalProps> = ({
   if (!isOpen) return null;
 
   const handleStop = () => {
-    stopAzan();
+    stopAdhan();
     stopSpeaking();
     setIsRecitingDua(false);
     onClose();
@@ -56,7 +56,7 @@ export const AzanLiveModal: React.FC<AzanLiveModalProps> = ({
       stopSpeaking();
       setIsRecitingDua(false);
     } else {
-      stopAzan(); // Stop adhan if playing to hear du'a clearly
+      stopAdhan(); // Stop adhan if playing to hear du'a clearly
       setIsRecitingDua(true);
       speakDua(
         duaAfterAdhanArabic,
