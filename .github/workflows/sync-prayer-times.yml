@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: '0 16 * * *' # 2–3 am in Melbourne
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: Build and deploy even if the prayer times didn't change
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -19,13 +24,13 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - run: npm ci
@@ -68,11 +73,11 @@ jobs:
           git push origin HEAD:main
 
       - name: Build
-        if: steps.changes.outputs.changed == 'true'
+        if: steps.changes.outputs.changed == 'true' || inputs.deploy
         run: npm run build
 
       - name: Deploy to gh-pages
-        if: steps.changes.outputs.changed == 'true'
+        if: steps.changes.outputs.changed == 'true' || inputs.deploy
         run: |
           git fetch origin gh-pages
           git worktree add --detach ../ghp origin/gh-pages
@@ -82,7 +87,8 @@ jobs:
           printf '.DS_Store\n' > .gitignore
           git add -A
           git commit -m "Deploy: prayer times sync" || exit 0
-          git push origin HEAD:gh-pages
+          # Pushed from the main checkout, which holds the push credentials
+          git -C "$GITHUB_WORKSPACE" push origin "$(git rev-parse HEAD):refs/heads/gh-pages"
 
       # Show the run as failed when a download failed, after deploying whatever did sync
       - name: Report failed downloads
