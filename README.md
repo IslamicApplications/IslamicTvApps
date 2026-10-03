@@ -40,6 +40,24 @@ Defined in `src/shared/theme.ts`:
 
 ---
 
+## 📺 Android TV app
+
+`android/` is a small Android app that shows the TV page full screen. Compared with opening the page in a browser:
+- **Opens when the TV turns on**, and goes straight to the prayer times (no "Press OK to Start"), so the Azan plays on time after a power cut.
+- **Sound plays without a key press**, the screen stays on, and the page keeps running when another app is in front.
+- **Appears in the TV's app list** with its own banner. Back on the remote closes dialogs and the Quran first.
+- If the internet isn't up yet, it shows "Waiting for the internet…" and tries again every 30 seconds.
+
+It shows the live site, so changes to the web app reach every TV without a new APK. `.github/workflows/android.yml` builds a new APK only when `android/` changes, signs it with the release key (repo secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`), and publishes it as the latest release.
+
+**Install on Google TV / Android TV**
+1. On the TV, install **Downloader** (by AFTVnews) from the Play Store.
+2. Settings → System → About → press **Android TV OS build** 7 times to turn on developer options. Then Settings → Apps → Security & restrictions → **Unknown sources** → allow **Downloader**.
+3. In Downloader, open `https://github.com/IslamicApplications/IslamicTvApps/releases/latest/download/DailyHadithAzan-TV.apk` and install.
+4. To open it automatically when the TV turns on: Settings → Apps → Special app access → **Display over other apps** → allow **Daily Hadith & Azan** (Android 10 and later need this to open an app at start-up).
+
+The menu names differ a little between TV makes.
+
 ## 🚀 Getting Started
 
 ```bash
