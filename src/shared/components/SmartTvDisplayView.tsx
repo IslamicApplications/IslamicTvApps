@@ -5,7 +5,7 @@ import { getHijriDate } from '../utils/hijri';
 import { loadArabicText, loadDailyHadithOrBundled, loadRandomHadith, loadRandomTopicHadith, loadTopics, HadithTopic, describeHadith } from '../utils/hadithLibrary';
 import { GradeBadge } from './GradeBadge';
 import { HijriAdjust } from './HijriAdjust';
-import { PrayerPhaseOverlay, getPrayerPhase, shouldPlayIqamah } from './PrayerPhaseOverlay';
+import { PrayerPhaseOverlay, getPrayerPhase, quranMayContinue, shouldPlayIqamah } from './PrayerPhaseOverlay';
 import { QuranDialog, QuranNowPlaying, useQuranPlayer } from './QuranPlayer';
 import { getHadithLanguage, useDisplayedHadith, useHadithLanguage, useUiLanguage, setUiLanguage, HadithLanguage } from '../hooks/useHadithLanguage';
 import { useI18n } from '../i18n';
@@ -178,24 +178,31 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
   })();
   // The Quran pauses once for each Adhan and prayer; pressing Play again carries on
   const quranPausedForRef = useRef<string | null>(null);
+  // The prayer ("date-prayer") the paused Quran waits for, to carry on once it's over
+  const quranWaitingForRef = useRef<string | null>(null);
+  const prayerPhaseKey = prayerPhase ? `${prayerData.localDateKey}-${prayerPhase.prayer}` : null;
   useEffect(() => {
     if (!quran.playing) return;
-    const reason = prayerPhase
-      ? `${prayerData.localDateKey}-${prayerPhase.prayer}`
-      : isAzanPlaying()
-      ? `azan-${getAzanPlayCount()}`
-      : null;
+    const reason = prayerPhaseKey ?? (isAzanPlaying() ? `azan-${getAzanPlayCount()}` : null);
     if (reason && reason !== quranPausedForRef.current) {
       quranPausedForRef.current = reason;
+      quranWaitingForRef.current = prayerPhaseKey;
       quran.pauseForPrayer();
     }
   }, [clockDate, quran.playing]);
+  // After the Iqamah and the prayer: the Quran carries on from where it stopped
+  useEffect(() => {
+    if (!quran.pausedForPrayer || !quranMayContinue(quranWaitingForRef.current, prayerPhaseKey, isAzanPlaying())) return;
+    quranWaitingForRef.current = null;
+    quran.continueAfterPrayer();
+  }, [clockDate, quran.pausedForPrayer]);
   // When the Iqamah countdown ends, the Iqamah plays once (only live: not when the TV is
   // switched on later in the prayer; off with Auto-Azan muted or the Iqamah turned off)
   useEffect(() => {
     const [h, m] = prayerData.localTime24.split(':').map(Number);
     if (!prayerPhase || !shouldPlayIqamah(prayerPhase, prayerData, h * 60 + m + clockDate.getSeconds() / 60, azanSettings)) return;
     if (!claimIqamahTrigger(`${prayerData.localDateKey}_${prayerPhase.prayer}`)) return;
+    if (quranRef.current.playing) quranWaitingForRef.current = prayerPhaseKey;
     quranRef.current.pauseForPrayer();
     playIqamah();
   }, [clockDate]);

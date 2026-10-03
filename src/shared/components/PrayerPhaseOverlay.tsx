@@ -52,6 +52,16 @@ export function shouldPlayIqamah(
   return iqama !== undefined && minutesNow >= iqama && minutesNow - iqama <= 1;
 }
 
+/**
+ * Whether the Quran, paused for a prayer, may carry on: the prayer it waited for
+ * (`waitingFor`, "date-prayer") is over (its countdown and prayer time have passed) and no
+ * Azan or Iqamah is playing. Without a prayer to wait for (paused for an Azan with no
+ * Iqamah countdown, e.g. Jumu'ah on Friday) it stays paused until Play is pressed.
+ */
+export function quranMayContinue(waitingFor: string | null, currentPhaseKey: string | null, azanPlaying: boolean): boolean {
+  return waitingFor !== null && currentPhaseKey !== waitingFor && !azanPlaying;
+}
+
 interface PrayerPhaseOverlayProps {
   phase: PrayerPhase;
   i18n: I18n;

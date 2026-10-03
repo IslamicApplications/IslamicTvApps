@@ -39,6 +39,8 @@ export interface QuranPlayer {
   /** Carries on from where the recitation was paused or stopped */
   resume: () => void;
   toggle: () => void;
+  /** After the prayer: carries on from where it paused for it */
+  continueAfterPrayer: () => void;
   stop: () => void;
   next: () => void;
   previous: () => void;
@@ -204,6 +206,20 @@ export function useQuranPlayer(): QuranPlayer {
     }
   }, [active, error, resume]);
 
+  const continueAfterPrayer = useCallback(() => {
+    const audio = audioRef.current;
+    setPausedForPrayer(false);
+    // The stream may have timed out during the prayer: then reload at the saved place
+    if (!audio?.getAttribute('src') || audio.error || error) {
+      resume();
+      return;
+    }
+    userPausedRef.current = false;
+    audio.play().catch((err) => {
+      if (err?.name !== 'AbortError') resume();
+    });
+  }, [error, resume]);
+
   const next = useCallback(() => {
     if (!isRepeat('next')) play(settingsRef.current.surah >= 114 ? 1 : settingsRef.current.surah + 1);
   }, [play]);
@@ -349,6 +365,7 @@ export function useQuranPlayer(): QuranPlayer {
     play,
     resume,
     toggle,
+    continueAfterPrayer,
     stop,
     next,
     previous,

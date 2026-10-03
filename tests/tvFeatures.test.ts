@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { calculateMosquePrayerTimes, INITIAL_MOSQUES } from '../src/shared/utils/prayerTimes';
-import { getPrayerPhase, shouldPlayIqamah } from '../src/shared/components/PrayerPhaseOverlay';
+import { getPrayerPhase, quranMayContinue, shouldPlayIqamah } from '../src/shared/components/PrayerPhaseOverlay';
 import { claimIqamahTrigger, DEFAULT_AZAN_SETTINGS } from '../src/shared/utils/azanAudio';
 import { getQuranPosition, resumeStartSeconds, saveQuranPosition } from '../src/shared/utils/quran';
 import { importSettingsFromHash } from '../src/tv/importSettings';
@@ -61,6 +61,26 @@ describe('Iqamah sound', () => {
     expect(claimIqamahTrigger('2026-10-03_Maghrib')).toBe(true);
     expect(claimIqamahTrigger('2026-10-03_Maghrib')).toBe(false);
     expect(claimIqamahTrigger('2026-10-03_Isha')).toBe(true);
+  });
+});
+
+describe('Quran after the prayer', () => {
+  const key = (minutes: number) => {
+    const phase = getPrayerPhase(day, minutes);
+    return phase ? `${day.localDateKey}-${phase.prayer}` : null;
+  };
+  const maghrib = `${day.localDateKey}-Maghrib`;
+
+  it('waits through the countdown, the Iqamah and the prayer, then carries on', () => {
+    expect(quranMayContinue(maghrib, key(adhan + 1), false)).toBe(false); // countdown
+    expect(quranMayContinue(maghrib, key(iqama), true)).toBe(false); // Iqamah playing
+    expect(quranMayContinue(maghrib, key(iqama + 5), false)).toBe(false); // praying
+    expect(quranMayContinue(maghrib, key(iqama + 10), false)).toBe(true); // prayer over
+    expect(quranMayContinue(maghrib, key(iqama + 10), true)).toBe(false); // an Azan is playing
+  });
+
+  it('stays paused after an Azan with no Iqamah countdown (Jumuah)', () => {
+    expect(quranMayContinue(null, null, false)).toBe(false);
   });
 });
 
