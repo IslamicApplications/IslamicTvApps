@@ -51,6 +51,12 @@ describe('Iqamah sound', () => {
     expect(shouldPlayIqamah(null, day, iqama, settings)).toBe(false);
   });
 
+  it('can be turned off for one prayer', () => {
+    const phase = getPrayerPhase(day, iqama);
+    expect(shouldPlayIqamah(phase, day, iqama, { ...settings, iqamahPrayers: { Maghrib: false } })).toBe(false);
+    expect(shouldPlayIqamah(phase, day, iqama, { ...settings, iqamahPrayers: { Isha: false } })).toBe(true);
+  });
+
   it('plays once per prayer', () => {
     expect(claimIqamahTrigger('2026-10-03_Maghrib')).toBe(true);
     expect(claimIqamahTrigger('2026-10-03_Maghrib')).toBe(false);

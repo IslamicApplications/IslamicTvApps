@@ -513,6 +513,14 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
     previewPlayRef.current = getAzanPlayCount();
   };
   const iqamahOn = azanSettings.iqamahSound !== false;
+  // The Iqamah for one prayer (all on unless turned off one by one)
+  const iqamahFor = (prayer: AzanPrayer) => azanSettings.iqamahPrayers?.[prayer] !== false;
+  const toggleIqamahFor = (prayer: AzanPrayer) => {
+    const iqamahPrayers = { ...azanSettings.iqamahPrayers };
+    if (iqamahFor(prayer)) iqamahPrayers[prayer] = false;
+    else delete iqamahPrayers[prayer];
+    updateAzanSettings({ ...azanSettings, iqamahPrayers });
+  };
 
 
   const mosquesByState = getAllMosques()
@@ -1003,6 +1011,18 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
                     >
                       {t('Change')}
                     </button>
+                    {!isDefaultRow && iqamahOn && (
+                      <button
+                        onClick={() => toggleIqamahFor(row.key as AzanPrayer)}
+                        aria-pressed={iqamahFor(row.key as AzanPrayer)}
+                        className={`min-w-[170px] px-5 py-3 rounded-2xl text-[20px] font-bold text-center whitespace-nowrap cursor-pointer ${
+                          iqamahFor(row.key as AzanPrayer) ? 'bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30' : 'bg-white/5 text-neutral-500 hover:bg-white/15'
+                        }`}
+                        title={t('Turn the {prayer} Iqamah on or off', { prayer: row.label })}
+                      >
+                        {t(iqamahFor(row.key as AzanPrayer) ? 'Iqamah on' : 'Iqamah off')}
+                      </button>
+                    )}
                     <button
                       onClick={() => togglePreview(row.key, effective)}
                       className={`p-4 rounded-2xl cursor-pointer ${isPreviewing ? 'bg-rose-500 text-white' : 'bg-amber-500 text-neutral-950'}`}

@@ -21,6 +21,8 @@ export interface AzanSettings {
   notifyBrowser: boolean;
   /** TV: play the Iqamah when the Iqamah countdown ends (on unless turned off) */
   iqamahSound?: boolean;
+  /** Prayers whose Iqamah is turned off (false); the others play it */
+  iqamahPrayers?: Partial<Record<AzanPrayer, boolean>>;
   lastPlayedPrayerKey?: string;
 }
 

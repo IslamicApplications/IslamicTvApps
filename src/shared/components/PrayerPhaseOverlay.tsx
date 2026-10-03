@@ -37,15 +37,17 @@ export function getPrayerPhase(prayerData: PrayerTimesResult, minutesNow: number
 /**
  * Whether the Iqamah should play now: in the first minute after the Iqamah time (only
  * live, not when the TV is switched on later in the prayer), unless Auto-Azan is muted or
- * the Iqamah is turned off. Each prayer's Iqamah still plays once (claimIqamahTrigger).
+ * the Iqamah is turned off, for all prayers or this one. Each prayer's Iqamah still plays
+ * once (claimIqamahTrigger).
  */
 export function shouldPlayIqamah(
   phase: PrayerPhase | null,
   prayerData: PrayerTimesResult,
   minutesNow: number,
-  settings: Pick<AzanSettings, 'autoAzanEnabled' | 'iqamahSound'>
+  settings: Pick<AzanSettings, 'autoAzanEnabled' | 'iqamahSound' | 'iqamahPrayers'>
 ): boolean {
   if (phase?.kind !== 'praying' || !settings.autoAzanEnabled || settings.iqamahSound === false) return false;
+  if (settings.iqamahPrayers?.[phase.prayer] === false) return false;
   const iqama = prayerData.iqamaMinutes[phase.prayer];
   return iqama !== undefined && minutesNow >= iqama && minutesNow - iqama <= 1;
 }
