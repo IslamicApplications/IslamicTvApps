@@ -1,3 +1,5 @@
+// First: settings moved over from the old address must be in place before anything reads them
+import './importSettings';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import TvApp from './TvApp';

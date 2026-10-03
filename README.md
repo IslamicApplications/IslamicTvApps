@@ -2,7 +2,7 @@
 
 A full-screen mosque display for **Google TV** and any big-screen browser: **Automatic Azan & Prayer Times** synchronized with **[Awqat.com.au](https://www.awqat.com.au/)** and mosques' own timetables, the **Iqamah countdown**, **Quran recitation**, and a **Daily Hadith from every collection on [sunnah.com](https://sunnah.com/)** (50,884 Hadiths).
 
-The app is built from `index.html` → `src/tv/`, with the prayer-time & Azan engine, components and data in `src/shared/`. It was split out of the [Daily Hadith & Azan](https://github.com/IsamicApps/Azan) project.
+The app is built from `index.html` → `src/tv/`, with the prayer-time & Azan engine, components and data in `src/shared/`. It was split out of the [Daily Hadith & Azan](https://github.com/IsamicApps/Azan) project, which is now the phone app only. The old TV address, isamicapps.github.io/Azan/tv/, redirects here. The first time a TV is redirected, its settings come with it in the link (`#import=…`, read by `src/tv/importSettings.ts`): the mosque, Azan voices, theme, Quran position and so on.
 
 ---
 
@@ -56,7 +56,7 @@ npm run build
 
 ## Tests
 
-`npm test` checks prayer times for every mosque over a year, the match with Awqat, daylight saving, the Hijri calendar, the Arabic interface and the daily Hadith order. `.github/workflows/test.yml` runs them on every push.
+`npm test` checks prayer times for every mosque over a year, the match with Awqat, daylight saving, the Hijri calendar, the Arabic interface and the daily Hadith order. It also checks the TV's own features (`tests/tvFeatures.test.ts`): the Iqamah countdown and prayer screen, when the Iqamah sound plays (live only, once, muted or off), carrying the Quran on from where it stopped, and the settings import. `.github/workflows/test.yml` runs them on every push.
 
 ## 🛠️ Tech Stack
 - **React 19** + **TypeScript** + **Vite**

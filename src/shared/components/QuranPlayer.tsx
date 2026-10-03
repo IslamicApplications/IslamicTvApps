@@ -13,6 +13,7 @@ import {
   getQuranSettings,
   loadRecitation,
   loadSurahText,
+  resumeStartSeconds,
   saveQuranPosition,
   saveQuranSettings,
   verseAt
@@ -143,12 +144,7 @@ export function useQuranPlayer(): QuranPlayer {
         timingsRef.current = recitation.timings;
         loadedRef.current = { surah: n, reciter };
         audio.src = recitation.url;
-        // Same reciter: the exact second; another reciter: the start of the same verse
-        const start = !from
-          ? 0
-          : from.reciter === reciter
-          ? from.time
-          : (recitation.timings.find((t) => t.verse === from.verse)?.from ?? 0) / 1000;
+        const start = resumeStartSeconds(from, n, reciter, recitation.timings);
         if (start > 0) {
           await new Promise<void>((resolve) => {
             const done = () => {

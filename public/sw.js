@@ -56,8 +56,7 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          const fallback = url.pathname.includes('/tv/') ? './tv/index.html' : './index.html';
-          return caches.match(event.request).then((cached) => cached || caches.match(fallback));
+          return caches.match(event.request).then((cached) => cached || caches.match('./index.html'));
         })
     );
     return;

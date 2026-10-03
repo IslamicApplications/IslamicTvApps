@@ -5,7 +5,7 @@ import { getHijriDate } from '../utils/hijri';
 import { loadArabicText, loadDailyHadithOrBundled, loadRandomHadith, loadRandomTopicHadith, loadTopics, HadithTopic, describeHadith } from '../utils/hadithLibrary';
 import { GradeBadge } from './GradeBadge';
 import { HijriAdjust } from './HijriAdjust';
-import { PrayerPhaseOverlay, getPrayerPhase } from './PrayerPhaseOverlay';
+import { PrayerPhaseOverlay, getPrayerPhase, shouldPlayIqamah } from './PrayerPhaseOverlay';
 import { QuranDialog, QuranNowPlaying, useQuranPlayer } from './QuranPlayer';
 import { getHadithLanguage, useDisplayedHadith, useHadithLanguage, useUiLanguage, setUiLanguage, HadithLanguage } from '../hooks/useHadithLanguage';
 import { useI18n } from '../i18n';
@@ -193,10 +193,8 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
   // When the Iqamah countdown ends, the Iqamah plays once (only live: not when the TV is
   // switched on later in the prayer; off with Auto-Azan muted or the Iqamah turned off)
   useEffect(() => {
-    if (prayerPhase?.kind !== 'praying' || !azanSettings.autoAzanEnabled || azanSettings.iqamahSound === false) return;
-    const iqama = prayerData.iqamaMinutes[prayerPhase.prayer];
     const [h, m] = prayerData.localTime24.split(':').map(Number);
-    if (iqama === undefined || h * 60 + m + clockDate.getSeconds() / 60 - iqama > 1) return;
+    if (!prayerPhase || !shouldPlayIqamah(prayerPhase, prayerData, h * 60 + m + clockDate.getSeconds() / 60, azanSettings)) return;
     if (!claimIqamahTrigger(`${prayerData.localDateKey}_${prayerPhase.prayer}`)) return;
     quranRef.current.pauseForPrayer();
     playIqamah();

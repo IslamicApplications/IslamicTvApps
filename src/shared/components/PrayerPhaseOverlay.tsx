@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { PrayerTimesResult } from '../utils/prayerTimes';
 import { IqamaPrayer } from '../utils/awqat';
 import { I18n } from '../i18n';
+import { AzanSettings } from '../utils/azanAudio';
 
 const PRAYERS: IqamaPrayer[] = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
@@ -31,6 +32,22 @@ export function getPrayerPhase(prayerData: PrayerTimesResult, minutesNow: number
     }
   }
   return null;
+}
+
+/**
+ * Whether the Iqamah should play now: in the first minute after the Iqamah time (only
+ * live, not when the TV is switched on later in the prayer), unless Auto-Azan is muted or
+ * the Iqamah is turned off. Each prayer's Iqamah still plays once (claimIqamahTrigger).
+ */
+export function shouldPlayIqamah(
+  phase: PrayerPhase | null,
+  prayerData: PrayerTimesResult,
+  minutesNow: number,
+  settings: Pick<AzanSettings, 'autoAzanEnabled' | 'iqamahSound'>
+): boolean {
+  if (phase?.kind !== 'praying' || !settings.autoAzanEnabled || settings.iqamahSound === false) return false;
+  const iqama = prayerData.iqamaMinutes[phase.prayer];
+  return iqama !== undefined && minutesNow >= iqama && minutesNow - iqama <= 1;
 }
 
 interface PrayerPhaseOverlayProps {

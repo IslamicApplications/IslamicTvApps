@@ -101,6 +101,16 @@ export function saveQuranPosition(position: QuranPosition | null): void {
   } catch {}
 }
 
+/**
+ * Where to start a surah, in seconds: the saved second with the same reciter, the start
+ * of the same verse with another reciter, or the beginning.
+ */
+export function resumeStartSeconds(from: QuranPosition | null | undefined, surah: number, reciter: number, timings: VerseTiming[]): number {
+  if (!from || from.surah !== surah) return 0;
+  if (from.reciter === reciter) return from.time;
+  return (timings.find((t) => t.verse === from.verse)?.from ?? 0) / 1000;
+}
+
 export interface VerseTiming {
   /** Verse number within the surah */
   verse: number;
