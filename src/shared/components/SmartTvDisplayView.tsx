@@ -225,6 +225,11 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
   const [duaMenuOpen, setDuaMenuOpen] = useState(false);
   const duaButtonRef = useRef<HTMLButtonElement>(null);
   const duaChosenOptionRef = useRef<HTMLButtonElement>(null);
+  const duaMenuRef = useRef<HTMLDivElement>(null);
+  const duaMenuOpenRef = useRef(false);
+  duaMenuOpenRef.current = duaMenuOpen;
+  // Set while history.back() is on its way to close the list, so it is only sent once
+  const duaMenuClosingRef = useRef(false);
   const selectedMosqueButtonRef = useRef<HTMLButtonElement>(null);
   const hadithBoxRef = useRef<HTMLDivElement>(null);
   const hadithContentRef = useRef<HTMLDivElement>(null);
@@ -441,6 +446,15 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
   // start page -> { tvQuran } -> { tvDialog }
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
+      // The Du'a list has its own entry over the Azan dialog's: Back closes just the list
+      if (duaMenuOpenRef.current && e.state?.tvDialog) {
+        const active = document.activeElement;
+        const focusInList = !active || active === document.body || !!duaMenuRef.current?.contains(active);
+        duaMenuClosingRef.current = false;
+        setDuaMenuOpen(false);
+        if (focusInList) duaButtonRef.current?.focus();
+        return;
+      }
       setOpenDialog(null);
       if (!e.state?.tvQuran) quranRef.current.stop();
       else if (!quranRef.current.active) window.history.back();
@@ -531,9 +545,21 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
     updateAzanSettings(withPrayerMuezzin(azanSettings, prayer, next));
   };
 
+  const openDuaMenu = () => {
+    window.history.pushState({ tvDialog: true, tvDuaMenu: true }, '');
+    duaMenuClosingRef.current = false;
+    setDuaMenuOpen(true);
+  };
+  // Through history, like the remote's Back, so the list's entry goes with it
   const closeDuaMenu = () => {
-    setDuaMenuOpen(false);
-    duaButtonRef.current?.focus();
+    if (duaMenuClosingRef.current) return;
+    if (window.history.state?.tvDuaMenu) {
+      duaMenuClosingRef.current = true;
+      window.history.back();
+    } else {
+      setDuaMenuOpen(false);
+      duaButtonRef.current?.focus();
+    }
   };
   const chooseDua = (dua: DuaId) => {
     if (previewingRow === 'dua') stopPreview();
@@ -1106,7 +1132,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
                   <div className="relative flex-1 min-w-0">
                     <button
                       ref={duaButtonRef}
-                      onClick={() => setDuaMenuOpen((open) => !open)}
+                      onClick={() => (duaMenuOpen ? closeDuaMenu() : openDuaMenu())}
                       aria-haspopup="listbox"
                       aria-expanded={duaMenuOpen}
                       className="w-full flex items-center gap-4 px-6 py-2 rounded-2xl bg-white/10 hover:bg-white/20 text-start cursor-pointer"
@@ -1121,6 +1147,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
                     {/* Its own dialog so the remote's arrows stay in the list; Back closes just the list */}
                     {duaMenuOpen && (
                       <div
+                        ref={duaMenuRef}
                         role="dialog"
                         aria-label={t("Du'a after Azan")}
                         onKeyDown={(e) => {
@@ -1133,7 +1160,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
                         onBlur={(e) => {
                           // Focus left the list (e.g. a click elsewhere); the toggle button handles itself
                           const to = e.relatedTarget as Node | null;
-                          if (!e.currentTarget.contains(to) && to !== duaButtonRef.current) setDuaMenuOpen(false);
+                          if (duaMenuOpenRef.current && !e.currentTarget.contains(to) && to !== duaButtonRef.current) closeDuaMenu();
                         }}
                         className="absolute bottom-full inset-x-0 mb-2 z-10 flex flex-col gap-1 p-2 rounded-2xl bg-[var(--tv-dialog)] border border-amber-500/40 shadow-2xl"
                       >
