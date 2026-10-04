@@ -33,6 +33,10 @@ import {
   isAzanPlaying,
   IQAMAH_SOURCE,
   playIqamah,
+  DUA_SOURCES,
+  DUA_IDS,
+  getDuaForSettings,
+  playDua,
   claimIqamahTrigger
 } from '../utils/azanAudio';
 import { speakHadith, stopSpeaking, isSpeaking } from '../utils/speech';
@@ -512,7 +516,12 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
     updateAzanSettings(withPrayerMuezzin(azanSettings, prayer, next));
   };
 
-  const togglePreview = (row: string, muezzin: MuezzinId | 'iqamah') => {
+  const cycleDua = () => {
+    const next = DUA_IDS[(DUA_IDS.indexOf(getDuaForSettings(azanSettings)) + 1) % DUA_IDS.length];
+    updateAzanSettings({ ...azanSettings, selectedDua: next });
+  };
+
+  const togglePreview = (row: string, muezzin: MuezzinId | 'iqamah' | 'dua') => {
     if (previewingRow === row) {
       stopPreview();
       return;
@@ -520,6 +529,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
     setPreviewingRow(row);
     const done = () => setPreviewingRow((current) => (current === row ? null : current));
     if (muezzin === 'iqamah') playIqamah(done);
+    else if (muezzin === 'dua') playDua(done, getDuaForSettings(azanSettings));
     else playAzan(undefined, done, muezzin);
     previewPlayRef.current = getAzanPlayCount();
   };
@@ -1069,6 +1079,30 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
                   {previewingRow === 'iqamah' ? <Square className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current" />}
                 </button>
               </div>
+              {/* The Du'a after the Azan: which recitation (shown once there is more than one) */}
+              {DUA_IDS.length > 1 && (
+                <div className="flex items-center gap-6 px-7 py-2.5 rounded-3xl border bg-white/5 border-white/10">
+                  <div className="w-[300px] shrink-0 text-[28px] font-bold text-white">{t("Du'a after Azan")}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[26px] font-semibold text-amber-200 truncate">{t(DUA_SOURCES[getDuaForSettings(azanSettings)].name)}</div>
+                    <div className="text-[20px] text-neutral-400">{t(DUA_SOURCES[getDuaForSettings(azanSettings)].location)}</div>
+                  </div>
+                  <button
+                    onClick={cycleDua}
+                    className="px-7 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-[22px] font-bold text-white cursor-pointer"
+                    title={t("Change the Du'a recitation")}
+                  >
+                    {t('Change')}
+                  </button>
+                  <button
+                    onClick={() => togglePreview('dua', 'dua')}
+                    className={`p-4 rounded-2xl cursor-pointer ${previewingRow === 'dua' ? 'bg-rose-500 text-white' : 'bg-amber-500 text-neutral-950'}`}
+                    title={t(previewingRow === 'dua' ? "Stop the Du'a preview" : "Listen to the Du'a")}
+                  >
+                    {previewingRow === 'dua' ? <Square className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current" />}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

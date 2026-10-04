@@ -23,6 +23,8 @@ export interface AzanSettings {
   iqamahSound?: boolean;
   /** Prayers whose Iqamah is turned off (false); the others play it */
   iqamahPrayers?: Partial<Record<AzanPrayer, boolean>>;
+  /** TV: the recitation of the Du'a after the Azan (Masjid al-Haram unless changed) */
+  selectedDua?: DuaId;
   lastPlayedPrayerKey?: string;
 }
 
@@ -83,12 +85,39 @@ export const IQAMAH_SOURCE = {
   url: `${cleanBase}audio/iqamah_makkah.mp3`
 };
 
-/** The Du'a after the Azan, recited by the muezzin of Masjid al-Haram. */
-export const DUA_SOURCE = {
-  name: "Du'a after Azan of Masjid al-Haram",
-  location: 'Masjid al-Haram, Makkah',
-  url: `${cleanBase}audio/dua_makkah.mp3`
-};
+/** Recitations of the Du'a after the Azan; the first is the default. Add one per recording. */
+export const DUA_SOURCES = {
+  makkah: {
+    name: "Du'a after Azan of Masjid al-Haram",
+    location: 'Masjid al-Haram, Makkah',
+    url: `${cleanBase}audio/dua_makkah.mp3`
+  },
+  madinah: {
+    name: "Du'a after Azan of Masjid an-Nabawi",
+    location: 'Muezzin Mahdi Barri, Madinah',
+    url: `${cleanBase}audio/dua_madinah.mp3`
+  },
+  alafasy: {
+    name: 'Mishary Rashid Alafasy',
+    location: 'Grand Mosque, Kuwait',
+    url: `${cleanBase}audio/dua_alafasy.mp3`
+  },
+  qureshi: {
+    name: 'Saad Al-Qureshi',
+    location: 'Reciter',
+    url: `${cleanBase}audio/dua_qureshi.mp3`
+  }
+} satisfies Record<string, { name: string; location: string; url: string }>;
+
+export type DuaId = keyof typeof DUA_SOURCES;
+
+export const DUA_IDS = Object.keys(DUA_SOURCES) as DuaId[];
+
+/** The chosen Du'a recitation; an unknown or removed one falls back to the default. */
+export function getDuaForSettings(settings: AzanSettings): DuaId {
+  const id = settings.selectedDua;
+  return id && Object.prototype.hasOwnProperty.call(DUA_SOURCES, id) ? id : DUA_IDS[0];
+}
 
 function isMuezzinId(value: unknown): value is MuezzinId {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(MUEZZIN_SOURCES, value);
@@ -272,11 +301,11 @@ export function playIqamah(onEnd?: () => void): void {
 }
 
 /**
- * Plays the Du'a after the Azan on the Azan's (already unlocked) player. onEnd is
- * called when it has finished, or at once if it can't play.
+ * Plays the Du'a after the Azan (the chosen recitation, or the one given) on the Azan's
+ * (already unlocked) player. onEnd is called when it has finished, or at once if it can't play.
  */
-export function playDua(onEnd?: () => void): void {
-  playOnAzanPlayer(DUA_SOURCE.url, onEnd);
+export function playDua(onEnd?: () => void, dua: DuaId = getDuaForSettings(getAzanSettings())): void {
+  playOnAzanPlayer(DUA_SOURCES[dua].url, onEnd);
 }
 
 /** The Iqamah is playing at this moment */

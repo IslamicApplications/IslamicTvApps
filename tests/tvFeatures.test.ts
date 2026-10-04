@@ -1,7 +1,8 @@
+import { existsSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { calculateMosquePrayerTimes, INITIAL_MOSQUES } from '../src/shared/utils/prayerTimes';
 import { getPrayerPhase, quranMayContinue, shouldPlayIqamah } from '../src/shared/components/PrayerPhaseOverlay';
-import { claimIqamahTrigger, DEFAULT_AZAN_SETTINGS } from '../src/shared/utils/azanAudio';
+import { claimIqamahTrigger, DEFAULT_AZAN_SETTINGS, DUA_IDS, DUA_SOURCES, getDuaForSettings } from '../src/shared/utils/azanAudio';
 import { getQuranPosition, resumeStartSeconds, saveQuranPosition } from '../src/shared/utils/quran';
 import { importSettingsFromHash } from '../src/tv/importSettings';
 
@@ -148,5 +149,21 @@ describe('Settings moved over from the old address (#import=…)', () => {
     expect(importSettingsFromHash('', storage)).toBe(0);
     expect(importSettingsFromHash('#other', storage)).toBe(0);
     expect(importSettingsFromHash('#import=%%%', storage)).toBe(0);
+  });
+});
+
+describe("Du'a after the Azan recitation", () => {
+  it('is Masjid al-Haram unless another is chosen, and falls back from an unknown one', () => {
+    expect(DUA_IDS[0]).toBe('makkah');
+    expect(getDuaForSettings(DEFAULT_AZAN_SETTINGS)).toBe('makkah');
+    expect(getDuaForSettings({ ...DEFAULT_AZAN_SETTINGS, selectedDua: 'removed' as any })).toBe('makkah');
+    expect(getDuaForSettings({ ...DEFAULT_AZAN_SETTINGS, selectedDua: 'alafasy' })).toBe('alafasy');
+  });
+
+  it('has a recording in public/audio for every recitation', () => {
+    for (const id of DUA_IDS) {
+      const file = DUA_SOURCES[id].url.split('/').pop()!;
+      expect(existsSync(`public/audio/${file}`), file).toBe(true);
+    }
   });
 });
