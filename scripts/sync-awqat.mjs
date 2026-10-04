@@ -14,7 +14,6 @@ const OUT = new URL('../src/shared/data/awqat.json', import.meta.url);
 const MOSQUES = {
   'melbourne-general': 'index2.html',
   amssa: 'amssa/',
-  erm: 'erm/',
   fmf: 'fmf/',
   fmm: 'fmm/',
   icmgbrimbank: 'icmgbrimbank/',

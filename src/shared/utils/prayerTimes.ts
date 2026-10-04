@@ -470,10 +470,19 @@ export function getMosqueJumuah(mosque: Mosque): string {
   return getAwqatJumuah(mosque.id) ?? getTimetableJumuah(mosque.id) ?? mosque.jumuah;
 }
 
+/** Mosques taken out of the app -> the nearest one, for devices that still have them saved */
+const REMOVED_MOSQUES: Record<string, string> = {
+  erm: 'rca' // Exford Road Musallah, no longer on awqat.com.au -> Rabita Centre, Rockbank
+};
+
 export function getSelectedMosque(): Mosque {
   const all = getAllMosques();
   try {
-    const savedId = localStorage.getItem(SELECTED_MOSQUE_KEY);
+    let savedId = localStorage.getItem(SELECTED_MOSQUE_KEY);
+    if (savedId && REMOVED_MOSQUES[savedId]) {
+      savedId = REMOVED_MOSQUES[savedId];
+      localStorage.setItem(SELECTED_MOSQUE_KEY, savedId);
+    }
     if (savedId) {
       const found = all.find(m => m.id === savedId);
       if (found) return found;

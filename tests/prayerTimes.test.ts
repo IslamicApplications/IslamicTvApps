@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateMosquePrayerTimes, INITIAL_MOSQUES } from '../src/shared/utils/prayerTimes';
+import { calculateMosquePrayerTimes, getSelectedMosque, INITIAL_MOSQUES } from '../src/shared/utils/prayerTimes';
 
 const mosque = (id: string) => INITIAL_MOSQUES.find((m) => m.id === id)!;
 const minutes = (t: string) => {
@@ -8,6 +8,12 @@ const minutes = (t: string) => {
 };
 
 describe('prayer times', () => {
+  it('moves a device that had a removed mosque saved to the nearest one', () => {
+    localStorage.setItem('daily_hadith_selected_mosque_id_v2', 'erm');
+    expect(getSelectedMosque().id).toBe('rca');
+    expect(localStorage.getItem('daily_hadith_selected_mosque_id_v2')).toBe('rca');
+  });
+
   it('are in order and well formed for every mosque on every day of a year', () => {
     for (const m of INITIAL_MOSQUES) {
       for (let d = 0; d < 366; d += 3) {

@@ -224,20 +224,6 @@
     "jumuah": "1:15 PM"
   },
   {
-    "id": "erm",
-    "name": "Exford Road Musallah",
-    "loc": "Melton South",
-    "suburb": "Melton South",
-    "state": "VIC",
-    "area": "MELTON",
-    "address": "Exford Rd, Melton South VIC 3338",
-    "lat": -37.7023,
-    "lng": 144.5714,
-    "link": "https://www.awqat.com.au/erm/",
-    "iqamaOffsets": { "Fajr": 20, "Dhuhr": 15, "Asr": 15, "Maghrib": 5, "Isha": 10 },
-    "jumuah": "1:15 PM"
-  },
-  {
     "id": "mbm",
     "name": "MBM Islamic Centre",
     "loc": "Laverton",
