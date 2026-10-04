@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calculateMosquePrayerTimes, getSelectedMosque, INITIAL_MOSQUES } from '../src/shared/utils/prayerTimes';
+import mosqueTimetables from '../src/shared/data/mosqueTimetables.json';
 
 const mosque = (id: string) => INITIAL_MOSQUES.find((m) => m.id === id)!;
 const minutes = (t: string) => {
@@ -43,7 +44,8 @@ describe('prayer times', () => {
     expect(r.iqama).toEqual({ Fajr: '04:51 AM', Dhuhr: '12:19 PM', Asr: '03:53 PM', Maghrib: '06:31 PM', Isha: '08:06 PM' });
     expect(r.timesSource).toBe('mosque');
     expect(r.timesSite).toBe('isv.org.au');
-    expect(r.jumuah).toBe('12:30 PM');
+    // Whatever Jumu'ah time the mosque publishes (it changes with daylight saving)
+    expect(r.jumuah).toBe(mosqueTimetables.isv.jumuah);
     // Daylight saving from 4 October
     expect(calculateMosquePrayerTimes(mosque('isv'), new Date('2026-10-04T09:00:00+11:00')).fajr).toBe('05:20 AM');
   });
