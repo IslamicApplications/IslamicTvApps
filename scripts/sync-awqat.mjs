@@ -125,10 +125,35 @@ async function calculationSettings(html, folder, id) {
   };
 }
 
+const previous = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : null;
 const cities = {};
 const mosques = {};
+// Mosques whose page couldn't be read keep their last synced data, so one page that
+// is down or removed from Awqat doesn't hold back every other mosque
+const failed = [];
 
 for (const [id, path] of Object.entries(MOSQUES)) {
+  try {
+    await syncMosque(id, path);
+  } catch (err) {
+    failed.push(id);
+    const kept = previous?.mosques?.[id];
+    if (kept) mosques[id] = kept;
+    console.warn(`::warning::${id}: ${err.message} (${kept ? 'kept its last synced data' : 'no earlier data, left out'})`);
+  }
+}
+
+if (failed.length === Object.keys(MOSQUES).length) {
+  console.error('Every Awqat page failed; the data file is left as it was.');
+  process.exit(1);
+}
+
+// Timetables of mosques that kept their old data, unless a synced mosque shares it
+for (const { timetable } of Object.values(mosques)) {
+  if (!cities[timetable] && previous?.cities?.[timetable]) cities[timetable] = previous.cities[timetable];
+}
+
+async function syncMosque(id, path) {
   const pageUrl = new URL(path, BASE).href;
   const folder = new URL('./', pageUrl).href;
   const html = await get(pageUrl);
@@ -204,7 +229,6 @@ if (prayTimesSource) {
 }
 
 // The date moves only when something changed, so the daily sync doesn't redeploy for nothing
-const previous = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : null;
 const unchanged = previous && JSON.stringify({ cities: previous.cities, mosques: previous.mosques }) === JSON.stringify({ cities, mosques });
 const fetched = unchanged ? previous.fetched : new Date().toISOString().slice(0, 10);
 fs.writeFileSync(OUT, JSON.stringify({ source: BASE, fetched, cities, mosques }));

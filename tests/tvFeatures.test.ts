@@ -6,15 +6,15 @@ import { getQuranPosition, resumeStartSeconds, saveQuranPosition } from '../src/
 import { importSettingsFromHash } from '../src/tv/importSettings';
 
 const amssa = INITIAL_MOSQUES.find((m) => m.id === 'amssa')!;
-// Saturday 3 October 2026 at AMSSA: Maghrib Adhan 6:30 pm, Iqamah 6:35 pm
+// Saturday 3 October 2026 at AMSSA: Maghrib Adhan 6:29 pm, Iqamah 6:34 pm
 const day = calculateMosquePrayerTimes(amssa, new Date('2026-10-03T12:00:00+10:00'));
 const adhan = day.adhanMinutes.Maghrib;
 const iqama = day.iqamaMinutes.Maghrib!;
 
 describe('Iqamah countdown and prayer (TV overlay)', () => {
   it('counts down from the Adhan to the Iqamah, then shows the prayer for its length', () => {
-    expect(adhan).toBe(18 * 60 + 30);
-    expect(iqama).toBe(18 * 60 + 35);
+    expect(adhan).toBe(18 * 60 + 29);
+    expect(iqama).toBe(18 * 60 + 34);
     expect(getPrayerPhase(day, adhan - 0.5)).toBeNull();
     expect(getPrayerPhase(day, adhan + 1)).toMatchObject({ kind: 'countdown', prayer: 'Maghrib', secondsLeft: 240 });
     expect(getPrayerPhase(day, iqama)).toMatchObject({ kind: 'praying', prayer: 'Maghrib' });

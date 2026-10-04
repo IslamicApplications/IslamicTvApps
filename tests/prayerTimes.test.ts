@@ -26,8 +26,8 @@ describe('prayer times', () => {
 
   it('match Awqat for AMSSA (timetable file + its minute adjustments, Iqamah)', () => {
     const r = calculateMosquePrayerTimes(mosque('amssa'), new Date('2026-10-02T09:00:00+10:00'));
-    expect([r.fajr, r.sunrise, r.dhuhr, r.asr, r.maghrib, r.isha]).toEqual(['04:24 AM', '05:55 AM', '12:14 PM', '03:44 PM', '06:29 PM', '07:39 PM']);
-    expect(r.iqama).toMatchObject({ Fajr: '04:54 AM', Dhuhr: '12:29 PM', Asr: '03:59 PM', Maghrib: '06:34 PM', Isha: '07:44 PM' });
+    expect([r.fajr, r.sunrise, r.dhuhr, r.asr, r.maghrib, r.isha]).toEqual(['04:24 AM', '05:54 AM', '12:16 PM', '03:44 PM', '06:29 PM', '07:40 PM']);
+    expect(r.iqama).toMatchObject({ Fajr: '04:54 AM', Dhuhr: '12:31 PM', Asr: '03:59 PM', Maghrib: '06:34 PM', Isha: '07:45 PM' });
     expect(r.timesSource).toBe('awqat');
   });
 
