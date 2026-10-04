@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { IslamicPattern, IslamicCornerOrnament } from './IslamicPattern';
 import { Mosque } from '../utils/prayerTimes';
-import { Volume2, VolumeX, X, Sparkles, Building2, Bell, Check, Play, Square } from 'lucide-react';
+import { Volume2, VolumeX, X, Sparkles, Building2, Bell, Play, Square } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { stopAdhan } from '../utils/azanAudio';
 import { speakDua, stopSpeaking, isSpeaking } from '../utils/speech';
@@ -28,7 +28,6 @@ export const AzanLiveModal: React.FC<AzanLiveModalProps> = ({
 }) => {
   const i18n = useI18n();
   const { t } = i18n;
-  const [copiedDua, setCopiedDua] = useState(false);
   const [isRecitingDua, setIsRecitingDua] = useState(false);
 
   if (!isOpen) return null;
@@ -42,14 +41,6 @@ export const AzanLiveModal: React.FC<AzanLiveModalProps> = ({
 
   const duaAfterAdhanArabic = "اللَّهُمَّ رَبَّ هَذِهِ الدَّعْوَةِ التَّامَّةِ، وَالصَّلَاةِ الْقَائِمَةِ، آتِ مُحَمَّدًا الْوَسِيلَةَ وَالْفَضِيلَةَ، وَابْعَثْهُ مَقَامًا مَحْمُودًا الَّذِي وَعَدْتَهُ";
   const duaTranslation = "O Allah, Lord of this perfect call and established prayer, grant Muhammad the status of intercession and nobility, and raise him to the praised position which You have promised him.";
-
-  const handleCopyDua = async () => {
-    try {
-      await navigator.clipboard.writeText(`${duaAfterAdhanArabic}\n\n"${duaTranslation}"\n— Sahih al-Bukhari #614`);
-      setCopiedDua(true);
-      setTimeout(() => setCopiedDua(false), 2000);
-    } catch {}
-  };
 
   const handleToggleReciteDua = () => {
     if (isRecitingDua || isSpeaking()) {
@@ -150,28 +141,18 @@ export const AzanLiveModal: React.FC<AzanLiveModalProps> = ({
           <div className="p-4 rounded-2xl bg-neutral-900/80 border border-white/10 text-start space-y-2.5">
             <div className="flex items-center justify-between text-[11px] text-amber-400 font-semibold">
               <span>{t("Du'a after Azan (Bukhari #614)")}</span>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleToggleReciteDua}
-                  className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition cursor-pointer ${
-                    isRecitingDua
-                      ? 'bg-amber-500 text-neutral-950 font-bold animate-pulse'
-                      : 'bg-white/10 hover:bg-white/20 text-neutral-200'
-                  }`}
-                  title={t("Listen to Du'a recitation")}
-                >
-                  {isRecitingDua ? <Square className="w-3 h-3 fill-current" /> : <Volume2 className="w-3 h-3" />}
-                  <span>{t(isRecitingDua ? "Stop Du'a" : "Recite Du'a")}</span>
-                </button>
-
-                <button
-                  onClick={handleCopyDua}
-                  className="text-neutral-400 hover:text-white flex items-center space-x-1 px-1.5 py-1 rounded cursor-pointer"
-                >
-                  {copiedDua ? <Check className="w-3 h-3 text-emerald-400" /> : null}
-                  <span>{t(copiedDua ? 'Copied' : 'Copy')}</span>
-                </button>
-              </div>
+              <button
+                onClick={handleToggleReciteDua}
+                className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition cursor-pointer ${
+                  isRecitingDua
+                    ? 'bg-amber-500 text-neutral-950 font-bold animate-pulse'
+                    : 'bg-white/10 hover:bg-white/20 text-neutral-200'
+                }`}
+                title={t("Listen to Du'a recitation")}
+              >
+                {isRecitingDua ? <Square className="w-3 h-3 fill-current" /> : <Volume2 className="w-3 h-3" />}
+                <span>{t(isRecitingDua ? "Stop Du'a" : "Recite Du'a")}</span>
+              </button>
             </div>
             <p dir="rtl" className="font-arabic text-sm text-neutral-200 leading-relaxed text-right">
               {duaAfterAdhanArabic}

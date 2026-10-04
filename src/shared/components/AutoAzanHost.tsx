@@ -20,6 +20,9 @@ import { currentI18n } from '../i18n';
 import { checkPrayerReminders } from '../utils/prayerReminders';
 import { AzanLiveModal } from './AzanLiveModal';
 
+/** How long the live Azan popup stays on screen */
+const AZAN_POPUP_MS = 60_000;
+
 /**
  * The app-wide auto-Azan watcher. Render exactly one per app: it plays the Azan
  * when a prayer time arrives at the selected mosque and shows the live Azan modal.
@@ -64,6 +67,17 @@ export const AutoAzanHost: React.FC = () => {
 
     return () => clearInterval(timer);
   }, [selectedMosque]);
+
+  // After a minute the popup closes by itself and the screen goes back to what it was
+  // showing; the Azan plays on to the end, and the Quran carries on after the prayer
+  useEffect(() => {
+    if (!activePrayer) return;
+    const timer = setTimeout(() => {
+      setActivePrayer(null);
+      setSoundBlocked(false);
+    }, AZAN_POPUP_MS);
+    return () => clearTimeout(timer);
+  }, [activePrayer]);
 
   return (
     <AzanLiveModal
