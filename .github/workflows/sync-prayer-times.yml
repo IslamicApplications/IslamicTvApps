@@ -79,6 +79,8 @@ jobs:
       - name: Deploy to gh-pages
         if: steps.changes.outputs.changed == 'true' || inputs.deploy
         run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898283+github-actions[bot]@users.noreply.github.com"
           git fetch origin gh-pages
           git worktree add --detach ../ghp origin/gh-pages
           cd ../ghp
@@ -86,7 +88,8 @@ jobs:
           cp -R "$GITHUB_WORKSPACE/dist/." .
           printf '.DS_Store\n' > .gitignore
           git add -A
-          git commit -m "Deploy: prayer times sync" || exit 0
+          if git diff --cached --quiet; then echo "Site unchanged."; exit 0; fi
+          git commit -m "Deploy: prayer times sync"
           # Pushed from the main checkout, which holds the push credentials
           git -C "$GITHUB_WORKSPACE" push origin "$(git rev-parse HEAD):refs/heads/gh-pages"
 
