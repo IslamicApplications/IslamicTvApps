@@ -1,7 +1,8 @@
 /**
  * Quran recitation for the TV, from the Quran Foundation's public Quran.com API
  * (https://api-docs.quran.foundation). Audio is streamed from quranicaudio.com;
- * the verse timings let the screen show the verse being recited.
+ * the verse timings let the screen show the verse being recited. A few reciters
+ * stream from Quran Central (qurancentral.com) instead, without verse timings.
  */
 import surahsData from '../data/surahs.json';
 
@@ -19,10 +20,16 @@ export interface Surah {
 export const SURAHS = surahsData as Surah[];
 
 export interface Reciter {
-  /** Quran.com chapter-recitation id */
+  /** Quran.com chapter-recitation id (Quran Central reciters: their Quran Central id) */
   id: number;
   name: string;
   nameAr: string;
+  /**
+   * Quran Central reciter: its folder on podcasts.qurancentral.com, which has one file
+   * per surah (001.mp3 … 114.mp3) and no verse timings. The files are refused when the
+   * request names another site as the referrer, so index.html sets `no-referrer`.
+   */
+  quranCentral?: string;
 }
 
 export const RECITERS: Reciter[] = [
@@ -37,8 +44,14 @@ export const RECITERS: Reciter[] = [
   { id: 9, name: 'Mohamed Siddiq al-Minshawi', nameAr: 'محمد صديق المنشاوي' },
   { id: 4, name: 'Abu Bakr al-Shatri', nameAr: 'أبو بكر الشاطري' },
   { id: 13, name: "Sa'd al-Ghamdi", nameAr: 'سعد الغامدي' },
-  { id: 5, name: "Hani ar-Rifa'i", nameAr: 'هاني الرفاعي' }
+  { id: 5, name: "Hani ar-Rifa'i", nameAr: 'هاني الرفاعي' },
+  { id: 2919, name: 'Muhammad al-Faqih', nameAr: 'محمد الفقيه', quranCentral: 'muhammad-al-faqih' }
 ];
+
+/** False for reciters whose recitations have no verse timings (the verse can't be followed). */
+export function hasVerseTimings(reciter: number): boolean {
+  return !RECITERS.find((r) => r.id === reciter)?.quranCentral;
+}
 
 export const BISMILLAH = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ';
 
@@ -141,6 +154,10 @@ async function getJson(url: string): Promise<any> {
 
 /** Audio file and verse timings for one surah by one reciter. */
 export function loadRecitation(reciter: number, surah: number): Promise<Recitation> {
+  const folder = RECITERS.find((r) => r.id === reciter)?.quranCentral;
+  if (folder) {
+    return Promise.resolve({ url: `https://podcasts.qurancentral.com/${folder}/${String(surah).padStart(3, '0')}.mp3`, timings: [] });
+  }
   const key = `${reciter}:${surah}`;
   if (!recitationCache.has(key)) {
     const request = getJson(`${API}/chapter_recitations/${reciter}/${surah}?segments=true`).then((data) => {

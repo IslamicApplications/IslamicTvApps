@@ -11,6 +11,7 @@ import {
   VerseTiming,
   getQuranPosition,
   getQuranSettings,
+  hasVerseTimings,
   loadRecitation,
   loadSurahText,
   resumeStartSeconds,
@@ -31,6 +32,8 @@ export interface QuranPlayer {
   pausedForPrayer: boolean;
   surah: Surah;
   verseIndex: number;
+  /** The recitation has verse timings, so the verse being recited can be shown */
+  timed: boolean;
   verseCount: number;
   progress: number;
   text: SurahText | null;
@@ -58,6 +61,7 @@ export function useQuranPlayer(): QuranPlayer {
   const [error, setError] = useState<string | null>(null);
   const [pausedForPrayer, setPausedForPrayer] = useState(false);
   const [verseIndex, setVerseIndex] = useState(0);
+  const [timed, setTimed] = useState(true);
   const [progress, setProgress] = useState(0);
   const [text, setText] = useState<SurahText | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -144,6 +148,7 @@ export function useQuranPlayer(): QuranPlayer {
         const recitation = await loadRecitation(reciter, n);
         if (token !== tokenRef.current) return;
         timingsRef.current = recitation.timings;
+        setTimed(recitation.timings.length > 0);
         loadedRef.current = { surah: n, reciter };
         audio.src = recitation.url;
         const start = resumeStartSeconds(from, n, reciter, recitation.timings);
@@ -359,6 +364,7 @@ export function useQuranPlayer(): QuranPlayer {
     pausedForPrayer,
     surah,
     verseIndex,
+    timed,
     verseCount: surah.verses,
     progress,
     text,
@@ -371,6 +377,15 @@ export function useQuranPlayer(): QuranPlayer {
     previous,
     pauseForPrayer
   };
+}
+
+/** 125 -> "2:05", 3725 -> "1:02:05" */
+export function formatDuration(seconds: number): string {
+  const total = Math.floor(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = String(total % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 }
 
 export function reciterName(id: number, i18n: I18n): string {
@@ -392,10 +407,11 @@ interface QuranNowPlayingProps {
 export const QuranNowPlaying: React.FC<QuranNowPlayingProps> = ({ player, i18n, showTranslation, onChoose }) => {
   const { t } = i18n;
   const { surah, text, verseIndex } = player;
-  const arabic = text?.arabic[verseIndex];
-  const english = text?.english[verseIndex];
+  // Without verse timings the verse isn't known: show the surah's name instead
+  const arabic = player.timed ? text?.arabic[verseIndex] : undefined;
+  const english = player.timed ? text?.english[verseIndex] : undefined;
   const verseNumber = verseIndex + 1;
-  const showBismillah = verseIndex === 0 && surah.bismillah && surah.n !== 1;
+  const showBismillah = player.timed && verseIndex === 0 && surah.bismillah && surah.n !== 1;
   const translationShown = showTranslation && english && (arabic?.length ?? 0) < 520;
   const verseAreaRef = useRef<HTMLDivElement>(null);
   const [sizeStep, setSizeStep] = useState(0);
@@ -456,8 +472,8 @@ export const QuranNowPlaying: React.FC<QuranNowPlayingProps> = ({ player, i18n, 
         </div>
         <div className="flex items-center justify-between gap-6">
           <div className="text-[22px] text-neutral-300 whitespace-nowrap">
-            {t('Verse {n} of {total}', { n: verseNumber, total: player.verseCount })}
-            {status && <span className={`ms-4 ${player.error ? 'text-rose-300' : 'text-amber-300'}`}>{status}</span>}
+            {player.timed && t('Verse {n} of {total}', { n: verseNumber, total: player.verseCount })}
+            {status && <span className={`${player.timed ? 'ms-4 ' : ''}${player.error ? 'text-rose-300' : 'text-amber-300'}`}>{status}</span>}
           </div>
           <div className="flex items-center gap-3">
             <button onClick={player.previous} className={controlClass} title={t('Previous Surah')}>
@@ -591,10 +607,15 @@ export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose,
             >
               <Play className="w-6 h-6" />
               <span>
-                {t('Continue {surah} from verse {n}', {
-                  surah: i18n.isArabic ? SURAHS[saved.surah - 1].ar : SURAHS[saved.surah - 1].en,
-                  n: saved.verse
-                })}
+                {hasVerseTimings(saved.reciter)
+                  ? t('Continue {surah} from verse {n}', {
+                      surah: i18n.isArabic ? SURAHS[saved.surah - 1].ar : SURAHS[saved.surah - 1].en,
+                      n: saved.verse
+                    })
+                  : t('Continue {surah} from {time}', {
+                      surah: i18n.isArabic ? SURAHS[saved.surah - 1].ar : SURAHS[saved.surah - 1].en,
+                      time: formatDuration(saved.time)
+                    })}
               </span>
             </button>
           )}

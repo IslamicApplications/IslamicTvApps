@@ -483,6 +483,7 @@ export const AR: Record<string, string> = {
   'Stop and show Hadiths': 'إيقاف وعرض الأحاديث',
   'Choose Surah': 'اختيار السورة',
   'Continue {surah} from verse {n}': 'متابعة سورة {surah} من الآية {n}',
+  'Continue {surah} from {time}': 'متابعة سورة {surah} من {time}',
   'Previous Surah': 'السورة السابقة',
   'Next Surah': 'السورة التالية',
   'Play': 'تشغيل',

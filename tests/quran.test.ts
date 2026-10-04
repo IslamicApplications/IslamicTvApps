@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SURAHS, cleanTranslation, verseAt } from '../src/shared/utils/quran';
+import { SURAHS, cleanTranslation, hasVerseTimings, loadRecitation, verseAt } from '../src/shared/utils/quran';
+import { formatDuration } from '../src/shared/components/QuranPlayer';
 
 describe('quran', () => {
   it('lists all 114 surahs with 6236 verses', () => {
@@ -23,5 +24,18 @@ describe('quran', () => {
     expect(cleanTranslation('In the name of Allāh,<sup foot_note=195932>1</sup> the Entirely Merciful')).toBe(
       'In the name of Allāh, the Entirely Merciful'
     );
+  });
+
+  it('streams Muhammad al-Faqih from Quran Central, without verse timings', async () => {
+    expect(hasVerseTimings(2919)).toBe(false);
+    expect(hasVerseTimings(7)).toBe(true);
+    expect(await loadRecitation(2919, 1)).toEqual({ url: 'https://podcasts.qurancentral.com/muhammad-al-faqih/001.mp3', timings: [] });
+    expect((await loadRecitation(2919, 114)).url).toBe('https://podcasts.qurancentral.com/muhammad-al-faqih/114.mp3');
+  });
+
+  it('formats a place in the recitation', () => {
+    expect(formatDuration(37.6)).toBe('0:37');
+    expect(formatDuration(125)).toBe('2:05');
+    expect(formatDuration(6133)).toBe('1:42:13');
   });
 });

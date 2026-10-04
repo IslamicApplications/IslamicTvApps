@@ -42,7 +42,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // The Quran API and its audio streams go straight to the network (recitations are large, streamed in parts)
-  if (url.hostname.endsWith('quran.com') || url.hostname.endsWith('quranicaudio.com')) return;
+  if (url.hostname.endsWith('quran.com') || url.hostname.endsWith('quranicaudio.com') || url.hostname.endsWith('qurancentral.com')) return;
   // The update check must always reach the network
   if (url.pathname.endsWith('/version.json')) return;
 
