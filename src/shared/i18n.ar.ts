@@ -158,6 +158,7 @@ export const AR: Record<string, string> = {
   'Time for': 'حان وقت',
   '{prayer} Prayer': 'صلاة {prayer}',
   'Tap to play the Azan': 'اضغط لتشغيل الأذان',
+  "Du'a after Azan": 'الدعاء بعد الأذان',
   "Du'a after Azan (Bukhari #614)": 'الدعاء بعد الأذان (البخاري 614)',
   "Listen to Du'a recitation": 'الاستماع إلى الدعاء',
   'Dismiss Azan': 'إغلاق الأذان',

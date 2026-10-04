@@ -83,6 +83,13 @@ export const IQAMAH_SOURCE = {
   url: `${cleanBase}audio/iqamah_makkah.mp3`
 };
 
+/** The Du'a after the Azan, recited by the muezzin of Masjid al-Haram. */
+export const DUA_SOURCE = {
+  name: "Du'a after Azan of Masjid al-Haram",
+  location: 'Masjid al-Haram, Makkah',
+  url: `${cleanBase}audio/dua_makkah.mp3`
+};
+
 function isMuezzinId(value: unknown): value is MuezzinId {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(MUEZZIN_SOURCES, value);
 }
@@ -261,10 +268,26 @@ export function playAzan(
  * as an Azan for isAzanPlaying() and stopAzan(). No chime stands in if it can't play.
  */
 export function playIqamah(onEnd?: () => void): void {
+  iqamahPlay = playOnAzanPlayer(IQAMAH_SOURCE.url, onEnd);
+}
+
+/**
+ * Plays the Du'a after the Azan on the Azan's (already unlocked) player. onEnd is
+ * called when it has finished, or at once if it can't play.
+ */
+export function playDua(onEnd?: () => void): void {
+  playOnAzanPlayer(DUA_SOURCE.url, onEnd);
+}
+
+/** The Iqamah is playing at this moment */
+export function isIqamahPlaying(): boolean {
+  return iqamahPlay === playCount && isAzanPlaying();
+}
+
+function playOnAzanPlayer(url: string, onEnd?: () => void): number {
   stopAzan();
   playCount += 1;
   const thisPlay = playCount;
-  iqamahPlay = thisPlay;
   const audio = getAzanElement();
   const isCurrent = () => playCount === thisPlay && activeAudio === audio;
   const finish = () => {
@@ -274,7 +297,7 @@ export function playIqamah(onEnd?: () => void): void {
   };
   try {
     audio.muted = false;
-    audio.src = IQAMAH_SOURCE.url;
+    audio.src = url;
     audio.volume = Math.max(0.1, Math.min(1.0, getAzanSettings().volume));
     audio.onplay = null;
     audio.onended = finish;
@@ -286,6 +309,7 @@ export function playIqamah(onEnd?: () => void): void {
   } catch {
     finish();
   }
+  return thisPlay;
 }
 
 export function stopAzan(): void {

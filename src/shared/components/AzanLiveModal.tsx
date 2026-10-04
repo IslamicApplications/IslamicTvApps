@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { IslamicPattern, IslamicCornerOrnament } from './IslamicPattern';
 import { Mosque } from '../utils/prayerTimes';
 import { Volume2, VolumeX, X, Sparkles, Building2, Bell, Play, Square } from 'lucide-react';
 import { useI18n } from '../i18n';
-import { stopAdhan } from '../utils/azanAudio';
-import { speakDua, stopSpeaking, isSpeaking } from '../utils/speech';
+import { stopAdhan, playDua } from '../utils/azanAudio';
 
 interface AzanLiveModalProps {
   isOpen: boolean;
@@ -15,7 +14,19 @@ interface AzanLiveModalProps {
   /** The browser blocked the Azan sound; show a button that plays it from a tap */
   soundBlocked?: boolean;
   onTapToPlay?: () => void;
+  /** The Azan has finished: the popup turns to the Du'a, plays it, then closes */
+  azanEnded?: boolean;
 }
+
+const duaAfterAdhanArabic = "اللَّهُمَّ رَبَّ هَذِهِ الدَّعْوَةِ التَّامَّةِ، وَالصَّلَاةِ الْقَائِمَةِ، آتِ مُحَمَّدًا الْوَسِيلَةَ وَالْفَضِيلَةَ، وَابْعَثْهُ مَقَامًا مَحْمُودًا الَّذِي وَعَدْتَهُ";
+const duaTranslation = "O Allah, Lord of this perfect call and established prayer, grant Muhammad the status of intercession and nobility, and raise him to the praised position which You have promised him.";
+
+/** If the Du'a recording can't play (e.g. offline), the Du'a stays this long to be read */
+const DUA_READING_MS = 30_000;
+/** A recording that ends sooner than this didn't really play */
+const DUA_MIN_PLAY_MS = 5_000;
+/** The popup closes after this long on the Du'a even if the recording never reports its end */
+const DUA_MAX_MS = 90_000;
 
 export const AzanLiveModal: React.FC<AzanLiveModalProps> = ({
   isOpen,
@@ -24,37 +35,73 @@ export const AzanLiveModal: React.FC<AzanLiveModalProps> = ({
   mosque,
   onClose,
   soundBlocked = false,
-  onTapToPlay
+  onTapToPlay,
+  azanEnded = false
 }) => {
   const i18n = useI18n();
   const { t } = i18n;
   const [isRecitingDua, setIsRecitingDua] = useState(false);
+  const recitingRef = useRef(false);
+  // Set when the Stop Du'a button stops the recording, so the popup stays open
+  const stoppedByUserRef = useRef(false);
+  const readingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const showingDua = isOpen && azanEnded;
+
+  const setReciting = (value: boolean) => {
+    recitingRef.current = value;
+    setIsRecitingDua(value);
+  };
+
+  // The Du'a of Masjid al-Haram; when it has played to the end, the popup closes and
+  // the Iqamah countdown shows
+  const reciteDua = () => {
+    stoppedByUserRef.current = false;
+    setReciting(true);
+    const startedAt = Date.now();
+    playDua(() => {
+      setReciting(false);
+      if (stoppedByUserRef.current) return;
+      if (Date.now() - startedAt >= DUA_MIN_PLAY_MS) onCloseRef.current();
+      else readingTimerRef.current = setTimeout(() => onCloseRef.current(), DUA_READING_MS);
+    });
+  };
+
+  // The Azan has finished: the Du'a plays by itself
+  useEffect(() => {
+    if (!showingDua) return;
+    reciteDua();
+    const timer = setTimeout(() => onCloseRef.current(), DUA_MAX_MS);
+    return () => clearTimeout(timer);
+  }, [showingDua]);
+
+  // The popup closed some other way: the Du'a doesn't carry on behind it
+  useEffect(() => {
+    if (isOpen) return;
+    if (readingTimerRef.current) clearTimeout(readingTimerRef.current);
+    readingTimerRef.current = null;
+    stoppedByUserRef.current = true;
+    if (recitingRef.current) stopAdhan();
+    setReciting(false);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleStop = () => {
+    stoppedByUserRef.current = true;
     stopAdhan();
-    stopSpeaking();
-    setIsRecitingDua(false);
+    setReciting(false);
     onClose();
   };
 
-  const duaAfterAdhanArabic = "اللَّهُمَّ رَبَّ هَذِهِ الدَّعْوَةِ التَّامَّةِ، وَالصَّلَاةِ الْقَائِمَةِ، آتِ مُحَمَّدًا الْوَسِيلَةَ وَالْفَضِيلَةَ، وَابْعَثْهُ مَقَامًا مَحْمُودًا الَّذِي وَعَدْتَهُ";
-  const duaTranslation = "O Allah, Lord of this perfect call and established prayer, grant Muhammad the status of intercession and nobility, and raise him to the praised position which You have promised him.";
-
   const handleToggleReciteDua = () => {
-    if (isRecitingDua || isSpeaking()) {
-      stopSpeaking();
-      setIsRecitingDua(false);
+    if (isRecitingDua) {
+      stoppedByUserRef.current = true;
+      stopAdhan();
+      setReciting(false);
     } else {
-      stopAdhan(); // Stop adhan if playing to hear du'a clearly
-      setIsRecitingDua(true);
-      speakDua(
-        duaAfterAdhanArabic,
-        duaTranslation,
-        () => setIsRecitingDua(true),
-        () => setIsRecitingDua(false)
-      );
+      reciteDua(); // takes over from the Azan if it is still playing
     }
   };
 
@@ -72,7 +119,7 @@ export const AzanLiveModal: React.FC<AzanLiveModalProps> = ({
           <div className="flex items-center space-x-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
             <span className="text-xs font-sans font-bold tracking-widest text-amber-300 uppercase">
-              {t('Azan (Adhan) Now Playing')}
+              {showingDua ? t("Du'a after Azan") : t('Azan (Adhan) Now Playing')}
             </span>
           </div>
 
@@ -123,7 +170,7 @@ export const AzanLiveModal: React.FC<AzanLiveModalProps> = ({
           )}
 
           {/* Animated Audio Equalizer Bars */}
-          <div className="flex items-center justify-center space-x-1.5 py-1">
+          {!showingDua && <div className="flex items-center justify-center space-x-1.5 py-1">
             {[40, 75, 55, 90, 65, 80, 45, 95, 60, 85, 50].map((h, idx) => (
               <span
                 key={idx}
@@ -135,10 +182,10 @@ export const AzanLiveModal: React.FC<AzanLiveModalProps> = ({
                 }}
               />
             ))}
-          </div>
+          </div>}
 
           {/* Du'a after Adhan with Recite Audio Button */}
-          <div className="p-4 rounded-2xl bg-neutral-900/80 border border-white/10 text-start space-y-2.5">
+          <div className={`p-4 rounded-2xl bg-neutral-900/80 border text-start space-y-2.5 ${showingDua ? 'border-amber-500/50' : 'border-white/10'}`}>
             <div className="flex items-center justify-between text-[11px] text-amber-400 font-semibold">
               <span>{t("Du'a after Azan (Bukhari #614)")}</span>
               <button
@@ -154,11 +201,11 @@ export const AzanLiveModal: React.FC<AzanLiveModalProps> = ({
                 <span>{t(isRecitingDua ? "Stop Du'a" : "Recite Du'a")}</span>
               </button>
             </div>
-            <p dir="rtl" className="font-arabic text-sm text-neutral-200 leading-relaxed text-right">
+            <p dir="rtl" className={`font-arabic text-neutral-200 leading-relaxed text-right ${showingDua ? 'text-xl md:text-2xl' : 'text-sm'}`}>
               {duaAfterAdhanArabic}
             </p>
             {!i18n.isArabic && (
-              <p className="font-serif text-xs text-neutral-400 italic">
+              <p className={`font-serif text-neutral-400 italic ${showingDua ? 'text-sm' : 'text-xs'}`}>
                 &ldquo;{duaTranslation}&rdquo;
               </p>
             )}

@@ -13,6 +13,7 @@ import {
   getAzanSettings,
   getMuezzinForPrayer,
   claimAzanTrigger,
+  isIqamahPlaying,
   unlockAudioOnFirstInteraction
 } from '../utils/azanAudio';
 import { showNotification } from '../utils/notify';
@@ -20,8 +21,8 @@ import { currentI18n } from '../i18n';
 import { checkPrayerReminders } from '../utils/prayerReminders';
 import { AzanLiveModal } from './AzanLiveModal';
 
-/** How long the live Azan popup stays on screen */
-const AZAN_POPUP_MS = 60_000;
+/** The popup closes after this long even if the Azan never reports its end (e.g. sound blocked) */
+const AZAN_POPUP_MAX_MS = 8 * 60_000;
 
 /**
  * The app-wide auto-Azan watcher. Render exactly one per app: it plays the Azan
@@ -32,6 +33,14 @@ export const AutoAzanHost: React.FC = () => {
   const [activePrayer, setActivePrayer] = useState<{ name: string; time: string; muezzin: MuezzinId } | null>(null);
   // The browser refused to start the Azan because the page hasn't been tapped since it loaded
   const [soundBlocked, setSoundBlocked] = useState(false);
+  // The Azan has played to the end: the popup moves on to the Du'a
+  const [azanEnded, setAzanEnded] = useState(false);
+
+  const startAzan = (muezzin: MuezzinId) => {
+    setSoundBlocked(false);
+    setAzanEnded(false);
+    playAzan(undefined, () => setAzanEnded(true), muezzin, () => setSoundBlocked(true));
+  };
 
   // Any tap or key press unlocks sound so the automatic Azan is allowed to play later
   useEffect(() => {
@@ -55,8 +64,7 @@ export const AutoAzanHost: React.FC = () => {
 
       const muezzin = getMuezzinForPrayer(azanSettings, duePrayer.name);
       setActivePrayer({ ...duePrayer, muezzin });
-      setSoundBlocked(false);
-      playAzan(undefined, () => {}, muezzin, () => setSoundBlocked(true));
+      startAzan(muezzin);
 
       const i18n = currentI18n();
       showNotification(i18n.t('Allahu Akbar • Time for {prayer} Prayer', { prayer: i18n.prayer(duePrayer.name) }), {
@@ -68,15 +76,24 @@ export const AutoAzanHost: React.FC = () => {
     return () => clearInterval(timer);
   }, [selectedMosque]);
 
-  // After a minute the popup closes by itself and the screen goes back to what it was
-  // showing; the Azan plays on to the end, and the Quran carries on after the prayer
+  const closePopup = () => {
+    setActivePrayer(null);
+    setSoundBlocked(false);
+    setAzanEnded(false);
+  };
+
+  // Azan → Du'a → the Iqamah countdown underneath; after the prayer the screen and the
+  // Quran carry on from where they were. The popup also gives way when the Iqamah starts.
   useEffect(() => {
     if (!activePrayer) return;
-    const timer = setTimeout(() => {
-      setActivePrayer(null);
-      setSoundBlocked(false);
-    }, AZAN_POPUP_MS);
-    return () => clearTimeout(timer);
+    const watch = setInterval(() => {
+      if (isIqamahPlaying()) closePopup();
+    }, 1000);
+    const timer = setTimeout(closePopup, AZAN_POPUP_MAX_MS);
+    return () => {
+      clearInterval(watch);
+      clearTimeout(timer);
+    };
   }, [activePrayer]);
 
   return (
@@ -86,15 +103,14 @@ export const AutoAzanHost: React.FC = () => {
       prayerTime={activePrayer?.time ?? ''}
       mosque={selectedMosque}
       soundBlocked={soundBlocked}
+      azanEnded={azanEnded}
       onTapToPlay={() => {
         // Runs inside the tap, so the browser now allows the chosen voice to play
         if (!activePrayer) return;
-        setSoundBlocked(false);
-        playAzan(undefined, () => {}, activePrayer.muezzin, () => setSoundBlocked(true));
+        startAzan(activePrayer.muezzin);
       }}
       onClose={() => {
-        setActivePrayer(null);
-        setSoundBlocked(false);
+        closePopup();
         stopAdhan();
       }}
     />
