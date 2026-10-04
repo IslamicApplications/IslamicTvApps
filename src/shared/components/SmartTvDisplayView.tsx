@@ -35,6 +35,7 @@ import {
   playIqamah,
   DUA_SOURCES,
   DUA_IDS,
+  DuaId,
   getDuaForSettings,
   playDua,
   claimIqamahTrigger
@@ -85,7 +86,9 @@ import {
   Timer,
   SunDim,
   Languages,
-  Palette
+  Palette,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 
 const MUEZZIN_IDS = Object.keys(MUEZZIN_SOURCES) as MuezzinId[];
@@ -218,6 +221,10 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
   // playAzan() count of the running preview; a newer count means the real Azan took over
   const previewPlayRef = useRef(0);
   const azanDialogFirstButtonRef = useRef<HTMLButtonElement>(null);
+  // The Du'a recitation dropdown in the Azan dialog
+  const [duaMenuOpen, setDuaMenuOpen] = useState(false);
+  const duaButtonRef = useRef<HTMLButtonElement>(null);
+  const duaChosenOptionRef = useRef<HTMLButtonElement>(null);
   const selectedMosqueButtonRef = useRef<HTMLButtonElement>(null);
   const hadithBoxRef = useRef<HTMLDivElement>(null);
   const hadithContentRef = useRef<HTMLDivElement>(null);
@@ -465,6 +472,14 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
     if (window.history.state?.tvDialog) window.history.go(wasActive ? -2 : -1);
   };
 
+  // The Du'a list opens on the chosen recitation and closes with the Azan dialog
+  useEffect(() => {
+    if (duaMenuOpen) duaChosenOptionRef.current?.focus();
+  }, [duaMenuOpen]);
+  useEffect(() => {
+    if (openDialog !== 'azan') setDuaMenuOpen(false);
+  }, [openDialog]);
+
   // Stop any voice preview when the Azan dialog closes
   useEffect(() => {
     if (openDialog !== 'azan' && previewingRow) {
@@ -516,9 +531,14 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
     updateAzanSettings(withPrayerMuezzin(azanSettings, prayer, next));
   };
 
-  const cycleDua = () => {
-    const next = DUA_IDS[(DUA_IDS.indexOf(getDuaForSettings(azanSettings)) + 1) % DUA_IDS.length];
-    updateAzanSettings({ ...azanSettings, selectedDua: next });
+  const closeDuaMenu = () => {
+    setDuaMenuOpen(false);
+    duaButtonRef.current?.focus();
+  };
+  const chooseDua = (dua: DuaId) => {
+    if (previewingRow === 'dua') stopPreview();
+    updateAzanSettings({ ...azanSettings, selectedDua: dua });
+    closeDuaMenu();
   };
 
   const togglePreview = (row: string, muezzin: MuezzinId | 'iqamah' | 'dua') => {
@@ -1083,17 +1103,66 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
               {DUA_IDS.length > 1 && (
                 <div className="flex items-center gap-6 px-7 py-2.5 rounded-3xl border bg-white/5 border-white/10">
                   <div className="w-[300px] shrink-0 text-[28px] font-bold text-white">{t("Du'a after Azan")}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[26px] font-semibold text-amber-200 truncate">{t(DUA_SOURCES[getDuaForSettings(azanSettings)].name)}</div>
-                    <div className="text-[20px] text-neutral-400">{t(DUA_SOURCES[getDuaForSettings(azanSettings)].location)}</div>
+                  <div className="relative flex-1 min-w-0">
+                    <button
+                      ref={duaButtonRef}
+                      onClick={() => setDuaMenuOpen((open) => !open)}
+                      aria-haspopup="listbox"
+                      aria-expanded={duaMenuOpen}
+                      className="w-full flex items-center gap-4 px-6 py-2 rounded-2xl bg-white/10 hover:bg-white/20 text-start cursor-pointer"
+                      title={t("Change the Du'a recitation")}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[26px] font-semibold text-amber-200 truncate">{t(DUA_SOURCES[getDuaForSettings(azanSettings)].name)}</div>
+                        <div className="text-[20px] text-neutral-400 truncate">{t(DUA_SOURCES[getDuaForSettings(azanSettings)].location)}</div>
+                      </div>
+                      <ChevronDown className={`w-8 h-8 shrink-0 text-neutral-300 transition-transform ${duaMenuOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {/* Its own dialog so the remote's arrows stay in the list; Back closes just the list */}
+                    {duaMenuOpen && (
+                      <div
+                        role="dialog"
+                        aria-label={t("Du'a after Azan")}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') {
+                            e.preventDefault();
+                            e.nativeEvent.stopPropagation();
+                            closeDuaMenu();
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Focus left the list (e.g. a click elsewhere); the toggle button handles itself
+                          const to = e.relatedTarget as Node | null;
+                          if (!e.currentTarget.contains(to) && to !== duaButtonRef.current) setDuaMenuOpen(false);
+                        }}
+                        className="absolute bottom-full inset-x-0 mb-2 z-10 flex flex-col gap-1 p-2 rounded-2xl bg-[var(--tv-dialog)] border border-amber-500/40 shadow-2xl"
+                      >
+                        <div role="listbox" className="flex flex-col gap-1">
+                          {DUA_IDS.map((id) => {
+                            const chosen = id === getDuaForSettings(azanSettings);
+                            return (
+                              <button
+                                key={id}
+                                ref={chosen ? duaChosenOptionRef : undefined}
+                                role="option"
+                                aria-selected={chosen}
+                                onClick={() => chooseDua(id)}
+                                className={`flex items-center gap-4 px-5 py-2.5 rounded-xl text-start cursor-pointer ${
+                                  chosen ? 'bg-amber-500/20' : 'hover:bg-white/10 focus:bg-white/10'
+                                }`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[24px] font-semibold text-white truncate">{t(DUA_SOURCES[id].name)}</div>
+                                  <div className="text-[18px] text-neutral-400 truncate">{t(DUA_SOURCES[id].location)}</div>
+                                </div>
+                                {chosen && <Check className="w-7 h-7 shrink-0 text-amber-300" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <button
-                    onClick={cycleDua}
-                    className="px-7 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-[22px] font-bold text-white cursor-pointer"
-                    title={t("Change the Du'a recitation")}
-                  >
-                    {t('Change')}
-                  </button>
                   <button
                     onClick={() => togglePreview('dua', 'dua')}
                     className={`p-4 rounded-2xl cursor-pointer ${previewingRow === 'dua' ? 'bg-rose-500 text-white' : 'bg-amber-500 text-neutral-950'}`}
