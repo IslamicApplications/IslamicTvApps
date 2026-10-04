@@ -23,6 +23,11 @@ export default defineConfig({
       }
     }
   ],
+  build: {
+    // One file on purpose (~180 kB gzipped, mostly React): a deploy replaces every file,
+    // so a TV left running an old build would fail to load a split-off chunk
+    chunkSizeWarningLimit: 800
+  },
   server: {
     port: 5173,
     host: true
