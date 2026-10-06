@@ -25,6 +25,8 @@ export interface AzanSettings {
   iqamahPrayers?: Partial<Record<AzanPrayer, boolean>>;
   /** TV: the recitation of the Du'a after the Azan (Masjid al-Haram unless changed) */
   selectedDua?: DuaId;
+  /** TV: play the Du'a when the Azan ends (on unless turned off) */
+  duaAfterAzan?: boolean;
   lastPlayedPrayerKey?: string;
 }
 
@@ -112,6 +114,11 @@ export const DUA_SOURCES = {
 export type DuaId = keyof typeof DUA_SOURCES;
 
 export const DUA_IDS = Object.keys(DUA_SOURCES) as DuaId[];
+
+/** Whether the Du'a plays when the Azan ends; off, the popup closes straight to the Iqamah countdown */
+export function isDuaAfterAzanOn(settings: Pick<AzanSettings, 'duaAfterAzan'>): boolean {
+  return settings.duaAfterAzan !== false;
+}
 
 /** The chosen Du'a recitation; an unknown or removed one falls back to the default. */
 export function getDuaForSettings(settings: AzanSettings): DuaId {

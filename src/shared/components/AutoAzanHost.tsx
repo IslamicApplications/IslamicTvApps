@@ -14,6 +14,7 @@ import {
   getMuezzinForPrayer,
   claimAzanTrigger,
   isIqamahPlaying,
+  isDuaAfterAzanOn,
   unlockAudioOnFirstInteraction
 } from '../utils/azanAudio';
 import { showNotification } from '../utils/notify';
@@ -36,10 +37,16 @@ export const AutoAzanHost: React.FC = () => {
   // The Azan has played to the end: the popup moves on to the Du'a
   const [azanEnded, setAzanEnded] = useState(false);
 
+  // With the Du'a turned off, the popup closes when the Azan ends
+  const onAzanEnded = () => {
+    if (isDuaAfterAzanOn(getAzanSettings())) setAzanEnded(true);
+    else closePopup();
+  };
+
   const startAzan = (muezzin: MuezzinId) => {
     setSoundBlocked(false);
     setAzanEnded(false);
-    playAzan(undefined, () => setAzanEnded(true), muezzin, () => setSoundBlocked(true));
+    playAzan(undefined, onAzanEnded, muezzin, () => setSoundBlocked(true));
   };
 
   // Any tap or key press unlocks sound so the automatic Azan is allowed to play later

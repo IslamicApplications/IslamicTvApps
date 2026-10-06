@@ -37,6 +37,7 @@ import {
   DUA_IDS,
   DuaId,
   getDuaForSettings,
+  isDuaAfterAzanOn,
   playDua,
   claimIqamahTrigger
 } from '../utils/azanAudio';
@@ -580,6 +581,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
     previewPlayRef.current = getAzanPlayCount();
   };
   const iqamahOn = azanSettings.iqamahSound !== false;
+  const duaOn = isDuaAfterAzanOn(azanSettings);
   // The Iqamah for one prayer (all on unless turned off one by one)
   const iqamahFor = (prayer: AzanPrayer) => azanSettings.iqamahPrayers?.[prayer] !== false;
   const toggleIqamahFor = (prayer: AzanPrayer) => {
@@ -1190,6 +1192,16 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
                       </div>
                     )}
                   </div>
+                  <button
+                    onClick={() => updateAzanSettings({ ...azanSettings, duaAfterAzan: !duaOn })}
+                    aria-pressed={duaOn}
+                    className={`px-7 py-3 rounded-2xl text-[22px] font-bold cursor-pointer ${
+                      duaOn ? 'bg-emerald-500/25 text-emerald-200 hover:bg-emerald-500/35' : 'bg-white/10 text-neutral-300 hover:bg-white/20'
+                    }`}
+                    title={t("Turn the Du'a after the Azan on or off")}
+                  >
+                    {t(duaOn ? 'On' : 'Off')}
+                  </button>
                   <button
                     onClick={() => togglePreview('dua', 'dua')}
                     className={`p-4 rounded-2xl cursor-pointer ${previewingRow === 'dua' ? 'bg-rose-500 text-white' : 'bg-amber-500 text-neutral-950'}`}

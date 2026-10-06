@@ -160,6 +160,7 @@ export const AR: Record<string, string> = {
   'Tap to play the Azan': 'اضغط لتشغيل الأذان',
   "Du'a after Azan": 'الدعاء بعد الأذان',
   "Change the Du'a recitation": 'تغيير تلاوة الدعاء',
+  "Turn the Du'a after the Azan on or off": 'تشغيل الدعاء بعد الأذان أو إيقافه',
   "Du'a after Azan of Masjid al-Haram": 'الدعاء بعد الأذان من المسجد الحرام',
   "Du'a after Azan of Masjid an-Nabawi": 'الدعاء بعد الأذان من المسجد النبوي',
   'Muezzin Mahdi Barri, Madinah': 'المؤذن مهدي بري، المدينة المنورة',

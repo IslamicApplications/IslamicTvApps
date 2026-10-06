@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { calculateMosquePrayerTimes, INITIAL_MOSQUES } from '../src/shared/utils/prayerTimes';
 import { getPrayerPhase, quranMayContinue, shouldPlayIqamah } from '../src/shared/components/PrayerPhaseOverlay';
-import { claimIqamahTrigger, DEFAULT_AZAN_SETTINGS, DUA_IDS, DUA_SOURCES, getDuaForSettings } from '../src/shared/utils/azanAudio';
+import { claimIqamahTrigger, DEFAULT_AZAN_SETTINGS, DUA_IDS, DUA_SOURCES, getDuaForSettings, isDuaAfterAzanOn } from '../src/shared/utils/azanAudio';
 import { getQuranPosition, resumeStartSeconds, saveQuranPosition } from '../src/shared/utils/quran';
 import { importSettingsFromHash } from '../src/tv/importSettings';
 
@@ -158,6 +158,12 @@ describe("Du'a after the Azan recitation", () => {
     expect(getDuaForSettings(DEFAULT_AZAN_SETTINGS)).toBe('makkah');
     expect(getDuaForSettings({ ...DEFAULT_AZAN_SETTINGS, selectedDua: 'removed' as any })).toBe('makkah');
     expect(getDuaForSettings({ ...DEFAULT_AZAN_SETTINGS, selectedDua: 'alafasy' })).toBe('alafasy');
+  });
+
+  it('plays after the Azan unless turned off', () => {
+    expect(isDuaAfterAzanOn(DEFAULT_AZAN_SETTINGS)).toBe(true);
+    expect(isDuaAfterAzanOn({ duaAfterAzan: true })).toBe(true);
+    expect(isDuaAfterAzanOn({ duaAfterAzan: false })).toBe(false);
   });
 
   it('has a recording in public/audio for every recitation', () => {
