@@ -14,6 +14,7 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.WebChromeClient;
+import android.window.OnBackInvokedDispatcher;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -75,18 +76,33 @@ public class MainActivity extends Activity {
 
         setContentView(web);
         hideSystemBars();
+        // Android 13+ (and every Android 16+ device) sends Back here, not as a key
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::onBack);
+        }
         if (savedInstanceState == null || web.restoreState(savedInstanceState) == null) web.loadUrl(APP_URL);
         web.requestFocus();
     }
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        // Back closes the page's dialogs and the Quran first (they are history entries)
-        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && web.canGoBack()) {
-            if (event.getAction() == KeyEvent.ACTION_UP) web.goBack();
+        // Before Android 13 Back arrives as a key; later it goes to the callback in onCreate
+        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            if (event.getAction() == KeyEvent.ACTION_UP) onBack();
             return true;
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    /**
+     * The remote's Back: the page first closes a screen that opened by itself (the Azan
+     * popup, the Iqamah countdown), then its dialogs and the Quran (history entries).
+     * With nothing open it does nothing, so the prayer times stay on the screen.
+     */
+    private void onBack() {
+        web.evaluateJavascript("window.tvBack ? window.tvBack() : false", (handled) -> {
+            if (!"true".equals(handled) && web.canGoBack()) web.goBack();
+        });
     }
 
     @Override

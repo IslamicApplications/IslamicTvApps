@@ -3,6 +3,7 @@ import { PrayerTimesResult } from '../utils/prayerTimes';
 import { IqamaPrayer } from '../utils/awqat';
 import { I18n } from '../i18n';
 import { AzanSettings } from '../utils/azanAudio';
+import { BACK_PRIORITY, useBackHandler } from '../hooks/useBackHandler';
 
 const PRAYERS: IqamaPrayer[] = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
@@ -71,6 +72,9 @@ interface PrayerPhaseOverlayProps {
 /** Full-screen TV overlay for the Iqamah countdown and the prayer itself. Any key or tap hides it. */
 export const PrayerPhaseOverlay: React.FC<PrayerPhaseOverlayProps> = ({ phase, i18n, onDismiss }) => {
   const { t } = i18n;
+
+  // The remote's Back in the Android app (it never arrives as a key) hides it too
+  useBackHandler(true, BACK_PRIORITY.prayerScreen, onDismiss);
 
   useEffect(() => {
     const hide = (e: KeyboardEvent) => {

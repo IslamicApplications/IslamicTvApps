@@ -58,6 +58,7 @@ import { IslamicPattern, IslamicCornerOrnament } from './IslamicPattern';
 import { RamadanAccent } from './RamadanAccent';
 import { useReloadOnUpdate } from '../hooks/useReloadOnUpdate';
 import { IN_ANDROID_APP } from '../utils/androidApp';
+import { handleBack } from '../hooks/useBackHandler';
 import { THEMES, nextTheme, useAppTheme } from '../theme';
 import { AppLogo } from './AppLogo';
 import {
@@ -401,7 +402,10 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
       } else if (e.key === 't' || e.key === 'T') {
         cycleTheme();
       } else if (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') {
-        if (openDialog) {
+        // The Azan popup (over everything) first
+        if (handleBack()) {
+          e.preventDefault();
+        } else if (openDialog) {
           e.preventDefault();
           closeDialog();
         } else if (player.active) {

@@ -136,7 +136,7 @@ PRIVATE
 
 1. **Add form factor → Android TV**, opt in, and accept the TV guidelines.
 2. Make sure the TV banner and TV screenshots from step 4 are on the listing.
-3. Google reviews TV apps separately against the [TV app quality guidelines](https://developer.android.com/docs/quality-guidelines/tv-app-quality). The app already has: a Leanback launcher entry and banner, no touchscreen requirement, full D-pad control, Back that closes dialogs and then leaves.
+3. Google reviews TV apps separately against the [TV app quality guidelines](https://developer.android.com/docs/quality-guidelines/tv-app-quality). The app already has: a Leanback launcher entry and banner, no touchscreen requirement, full D-pad control, Back that closes the Azan popup, the Iqamah countdown, dialogs and the Quran. On the main screen Back does nothing (Home leaves), so a stray press can't take the prayer times off a mosque's screen.
 
 ## 7. Release
 

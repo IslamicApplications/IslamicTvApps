@@ -4,6 +4,7 @@ import { Mosque } from '../utils/prayerTimes';
 import { Volume2, VolumeX, X, Sparkles, Building2, Bell, Play, Square } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { stopAdhan, playDua } from '../utils/azanAudio';
+import { BACK_PRIORITY, useBackHandler } from '../hooks/useBackHandler';
 
 interface AzanLiveModalProps {
   isOpen: boolean;
@@ -86,14 +87,17 @@ export const AzanLiveModal: React.FC<AzanLiveModalProps> = ({
     setReciting(false);
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   const handleStop = () => {
     stoppedByUserRef.current = true;
     stopAdhan();
     setReciting(false);
     onClose();
   };
+
+  // The remote's Back dismisses the popup, like the Dismiss button
+  useBackHandler(isOpen, BACK_PRIORITY.azanPopup, handleStop);
+
+  if (!isOpen) return null;
 
   const handleToggleReciteDua = () => {
     if (isRecitingDua) {
