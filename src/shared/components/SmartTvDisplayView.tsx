@@ -102,6 +102,11 @@ interface SmartTvDisplayViewProps {
 // Offline fallback when the sunnah.com library can't be downloaded
 const pool = dailyPoolData as Hadith[];
 
+/** Midday of the mosque's calendar day, for dates shown in the mosque's time zone, not the TV's */
+function mosqueDay(prayerData: PrayerTimesResult): Date {
+  return new Date(`${prayerData.localDateKey}T12:00:00`);
+}
+
 const CROSS_REFERENCE = /^[\s(\["]*(as above|see (the )?(previous|above|next) hadith|see hadith)/i;
 
 /**
@@ -184,7 +189,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
   // Iqamah countdown / prayer in progress at this moment (Friday Dhuhr is Jumu'ah)
   const prayerPhase = (() => {
     const [h, m] = prayerData.localTime24.split(':').map(Number);
-    const isFriday = new Date(`${prayerData.localDateKey}T12:00:00`).getDay() === 5;
+    const isFriday = mosqueDay(prayerData).getDay() === 5;
     return getPrayerPhase(prayerData, h * 60 + m + clockDate.getSeconds() / 60, (p) => isFriday && p === 'Dhuhr');
   })();
   // The Quran pauses once for each Adhan and prayer; pressing Play again carries on
@@ -277,10 +282,12 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
       const currentCalc = calculateMosquePrayerTimes(selectedMosque, now);
       setPrayerData(currentCalc);
 
-      const hours = String(now.getHours() % 12 || 12).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
+      // The mosque's time, like the prayer times, even when the TV is set to another time zone
+      const [h, m] = currentCalc.localTime24.split(':').map(Number);
+      const hours = String(h % 12 || 12).padStart(2, '0');
+      const minutes = String(m).padStart(2, '0');
       const seconds = String(now.getSeconds()).padStart(2, '0');
-      const ampm = now.getHours() >= 12 ? 'PM' : 'AM';
+      const ampm = h >= 12 ? 'PM' : 'AM';
 
       setCurrentTimeStr(`${hours}:${minutes}`);
       setCurrentPeriod(ampm);
@@ -288,7 +295,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
 
       setClockDate(now);
 
-      setCurrentHijriStr(getHijriDate(now).formatted);
+      setCurrentHijriStr(getHijriDate(mosqueDay(currentCalc)).formatted);
     };
 
     updateTime();
@@ -698,7 +705,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
             {i18n.hijri(currentHijriStr)}
           </div>
           <div className="text-[22px] text-neutral-300 font-medium whitespace-nowrap">
-            {i18n.date(clockDate, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            {i18n.date(mosqueDay(prayerData), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </div>
         </div>
 
