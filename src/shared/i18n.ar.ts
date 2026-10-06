@@ -470,6 +470,7 @@ export const AR: Record<string, string> = {
   // TV start screen
   'Prayer times, live Azan and Hadith from sunnah.com for your TV': 'مواقيت الصلاة والأذان المباشر وأحاديث من sunnah.com لشاشتك',
   'Press OK to Start': 'اضغط OK للبدء',
+  'Press Back again to leave': 'اضغط رجوع مرة أخرى للخروج',
   'Starting enables the automatic Azan sound on this TV': 'البدء يفعّل صوت الأذان التلقائي على هذه الشاشة',
   // Quran recitation (TV)
   'Quran': 'القرآن',

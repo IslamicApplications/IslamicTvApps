@@ -5,6 +5,7 @@ import { getPrayerPhase, quranMayContinue, shouldPlayIqamah } from '../src/share
 import { claimIqamahTrigger, DEFAULT_AZAN_SETTINGS, DUA_IDS, DUA_SOURCES, getDuaForSettings, isDuaAfterAzanOn } from '../src/shared/utils/azanAudio';
 import { getQuranPosition, resumeStartSeconds, saveQuranPosition } from '../src/shared/utils/quran';
 import { importSettingsFromHash } from '../src/tv/importSettings';
+import { confirmLeave } from '../src/shared/hooks/useBackHandler';
 
 const amssa = INITIAL_MOSQUES.find((m) => m.id === 'amssa')!;
 // Saturday 3 October 2026 at AMSSA: Maghrib Adhan 6:29 pm, Iqamah 6:34 pm
@@ -171,5 +172,16 @@ describe("Du'a after the Azan recitation", () => {
       const file = DUA_SOURCES[id].url.split('/').pop()!;
       expect(existsSync(`public/audio/${file}`), file).toBe(true);
     }
+  });
+});
+
+describe('Back on the prayer times (Android app)', () => {
+  it('leaves only on a second press within 3 seconds', () => {
+    const t = 1_000_000;
+    expect(confirmLeave(t)).toBe(false); // shows "Press Back again to leave"
+    expect(confirmLeave(t + 2000)).toBe(true);
+    expect(confirmLeave(t + 10_000)).toBe(false); // a new first press
+    expect(confirmLeave(t + 14_000)).toBe(false); // too late: the note shows again
+    expect(confirmLeave(t + 15_000)).toBe(true);
   });
 });

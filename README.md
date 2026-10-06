@@ -46,7 +46,7 @@ Defined in `src/shared/theme.ts`:
 `android/` is a small Android app that shows the TV page full screen. Compared with opening the page in a browser:
 - **Opens when the TV turns on**, and goes straight to the prayer times (no "Press OK to Start"), so the Azan plays on time after a power cut.
 - **Sound plays without a key press**, the screen stays on, and the page keeps running when another app is in front.
-- **Appears in the TV's app list** with its own banner. Back on the remote closes the Azan popup, the Iqamah countdown, dialogs and the Quran; on the prayer times it does nothing, so a stray press can't take them off the screen (Home leaves the app).
+- **Appears in the TV's app list** with its own banner. Back on the remote closes the Azan popup, the Iqamah countdown, dialogs and the Quran. On the prayer times the first Back shows "Press Back again to leave" and a second one within 3 seconds goes to the home screen (the app keeps running, as after Home), so a stray press can't take the prayer times off the screen.
 - If the internet isn't up yet, it shows "Waiting for the internet…" and tries again every 30 seconds.
 
 It shows the live site, so changes to the web app reach every TV without a new APK: each build writes `version.json`, and a TV running the app checks it every 15 minutes and reloads itself at a quiet moment (no Azan, Iqamah, prayer, Quran or open menu). `.github/workflows/android.yml` builds a new APK only when `android/` changes, signs it with the release key (repo secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`), and publishes it as the latest release.

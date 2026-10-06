@@ -97,11 +97,21 @@ public class MainActivity extends Activity {
     /**
      * The remote's Back: the page first closes a screen that opened by itself (the Azan
      * popup, the Iqamah countdown), then its dialogs and the Quran (history entries).
-     * With nothing open it does nothing, so the prayer times stay on the screen.
+     * On the prayer times the first press shows "Press Back again to leave"; a second one
+     * goes to the home screen (Google's TV guideline TV-DB), and the app keeps running
+     * as it does after Home.
      */
     private void onBack() {
         web.evaluateJavascript("window.tvBack ? window.tvBack() : false", (handled) -> {
-            if (!"true".equals(handled) && web.canGoBack()) web.goBack();
+            if ("true".equals(handled)) return;
+            if (web.canGoBack()) {
+                web.goBack();
+                return;
+            }
+            // No note on the "Waiting for the internet" page: leave at once
+            web.evaluateJavascript("window.tvLeave ? window.tvLeave() : true", (leave) -> {
+                if ("true".equals(leave)) moveTaskToBack(true);
+            });
         });
     }
 
