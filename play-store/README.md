@@ -62,7 +62,7 @@ Prayer times, Azan & Iqamah, Quran and daily Hadith for your mosque or home TV
 Turn any Google TV or Android TV into a mosque display: today's prayer times, the Azan on time, an Iqamah countdown, Quran recitation and a Hadith of the Day from sunnah.com, in English and Arabic.
 
 PRAYER TIMES THAT MATCH YOUR MOSQUE
-• 34 mosques across Australia, with the same Adhan and Iqamah times as awqat.com.au and the mosques' own timetables (Preston Mosque / isv.org.au), including Jumu'ah
+• 33 mosques across Australia, with the same Adhan and Iqamah times as awqat.com.au and the mosques' own timetables (Preston Mosque / isv.org.au), including Jumu'ah
 • Daylight saving applied automatically, Hijri date, Qibla direction
 • Live countdown to the next prayer
 
@@ -77,7 +77,7 @@ BUILT FOR THE TV
 • Seven themes, including Time of Day (the colours follow the prayer times) and a light Parchment theme; brightness for the night
 
 QURAN RECITATION
-• All 114 surahs from 12 reciters (Alafasy, Sudais, Shuraym, Maher al-Mu'aiqly, Yasser ad-Dussary, Abdul Basit, Husary, Minshawi and more)
+• All 114 surahs from 13 reciters (Alafasy, Sudais, Shuraym, Maher al-Mu'aiqly, Yasser ad-Dussary, Abdul Basit, Husary, Minshawi and more)
 • The verse being recited in Uthmani script, with the Saheeh International translation
 • Pauses by itself for the Azan and the prayer, and always carries on from where it stopped
 
@@ -101,11 +101,11 @@ PRIVATE
 ```
 حوّل أي تلفاز Google TV أو Android TV إلى شاشة مسجد: مواقيت الصلاة، والأذان في وقته، والعد التنازلي للإقامة، وتلاوة القرآن، وحديث اليوم من sunnah.com، بالعربية والإنجليزية.
 
-• مواقيت 34 مسجدًا في أستراليا مطابقة لموقع أوقات (awqat.com.au) وجداول المساجد، مع الجمعة والتوقيت الصيفي والتاريخ الهجري والقبلة
+• مواقيت 33 مسجدًا في أستراليا مطابقة لموقع أوقات (awqat.com.au) وجداول المساجد، مع الجمعة والتوقيت الصيفي والتاريخ الهجري والقبلة
 • الأذان تلقائيًا بأصوات مكة والمدينة ومشاري العفاسي والمسجد الأقصى والشيخ عبد الباسط
 • عدّ تنازلي للإقامة بملء الشاشة، وإقامة المسجد الحرام عند وقتها
 • يمكنه الفتح تلقائيًا عند تشغيل التلفاز، ويبقي الشاشة مضاءة، ويعمل بالكامل بجهاز التحكم
-• تلاوة السور الـ114 بصوت 12 قارئًا مع عرض الآية، ويتوقف للأذان والصلاة ثم يكمل من حيث توقف
+• تلاوة السور الـ114 بصوت 13 قارئًا مع عرض الآية، ويتوقف للأذان والصلاة ثم يكمل من حيث توقف
 • حديث اليوم من الكتب السبعة عشر في sunnah.com مع المرجع والدرجة
 • واجهة عربية كاملة من اليمين إلى اليسار
 • بلا حساب ولا إعلانات ولا تتبع
