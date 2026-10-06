@@ -9,7 +9,7 @@ Everything to upload is in this folder or produced by GitHub Actions. The steps 
 | App icon 512×512 | `graphics/icon-512.png` |
 | Feature graphic 1024×500 | `graphics/feature-graphic-1024x500.png` |
 | TV banner 1280×720 | `graphics/tv-banner-1280x720.png` |
-| TV screenshots 1920×1080 (also usable as phone/tablet screenshots) | `screenshots/1…6` |
+| TV screenshots 1920×1080 (also usable as phone/tablet screenshots) | `screenshots/1…7`: prayer times and Hadith, the Azan, the Iqamah countdown, Quran recitation, Arabic, Azan voices, the light theme |
 | Privacy policy URL | https://islamicapplications.github.io/IslamicTvApps/privacy.html |
 | Signing key for Play | Actions → **Play signing key** workflow (step 3) |
 
@@ -112,7 +112,7 @@ PRIVATE
 ```
 
 **Graphics**: upload `graphics/icon-512.png`, `graphics/feature-graphic-1024x500.png`.
-**Screenshots**: upload `screenshots/1…6` under **Android TV** (TV banner: `graphics/tv-banner-1280x720.png`), and the same files under **Phone** and **7-inch / 10-inch tablet** (Play requires phone screenshots because the app also installs on phones; 16:9 is accepted).
+**Screenshots**: upload `screenshots/1…7` under **Android TV** (TV banner: `graphics/tv-banner-1280x720.png`), and the same files under **Phone** and **7-inch / 10-inch tablet** (Play requires phone screenshots because the app also installs on phones; 16:9 is accepted).
 
 **Category**: Lifestyle (or Books & Reference). **Tags**: Religion, Prayer times.
 **Contact details**: an email address (shown publicly on the listing) and website `https://github.com/IslamicApplications/IslamicTvApps`.
@@ -136,7 +136,7 @@ PRIVATE
 
 1. **Add form factor → Android TV**, opt in, and accept the TV guidelines.
 2. Make sure the TV banner and TV screenshots from step 4 are on the listing.
-3. Google reviews TV apps separately against the [TV app quality guidelines](https://developer.android.com/docs/quality-guidelines/tv-app-quality). The app already has: a Leanback launcher entry and banner, no touchscreen requirement, full D-pad control, Back that closes the Azan popup, the Iqamah countdown, dialogs and the Quran. On the main screen Back does nothing (Home leaves), so a stray press can't take the prayer times off a mosque's screen.
+3. Google reviews TV apps separately against the [TV app quality guidelines](https://developer.android.com/docs/quality-guidelines/tv-app-quality). The app already has: a Leanback launcher entry and banner, no touchscreen requirement, full D-pad control, and Back that closes the Azan popup, the Iqamah countdown, dialogs and the Quran, then leads to the home screen (TV-DB). On the prayer times the first Back shows "Press Back again to leave" and a second one leaves, so a stray press can't take the prayer times off a mosque's screen. This needs app version 1.5 or later: upload the `.aab` from the newest release.
 
 ## 7. Release
 
