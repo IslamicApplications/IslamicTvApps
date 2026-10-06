@@ -68,7 +68,7 @@ git clone https://github.com/IslamicApplications/IslamicTvApps.git
 cd IslamicTvApps
 npm install
 
-# Development server: http://localhost:5173/
+# Development server: http://localhost:5180/
 npm run dev
 
 # Build for production (into dist/)
