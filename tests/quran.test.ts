@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SURAHS, arabicVolume, canAddEnglish, cleanTranslation, englishVerseUrl, firstVerseNumber, getQuranSettings, hasVerseTimings, isEnglishReciter, loadRecitation, resumeStartSeconds, resumeTrack, saveQuranSettings, verseAt, verseToTranslate } from '../src/shared/utils/quran';
+import { SURAHS, arabicVolume, canAddEnglish, resumeAfterEnglish, cleanTranslation, englishVerseUrl, firstVerseNumber, getQuranSettings, hasVerseTimings, isEnglishReciter, loadRecitation, resumeStartSeconds, resumeTrack, saveQuranSettings, verseAt, verseToTranslate } from '../src/shared/utils/quran';
 import { formatDuration } from '../src/shared/components/QuranPlayer';
 
 describe('quran', () => {
@@ -83,6 +83,14 @@ describe('quran', () => {
     // The last verse waits for the end of the audio (its timing can end before the recitation)
     expect(verseToTranslate(timings, 16500, 1)).toBeNull();
     expect(englishVerseUrl(2, 255)).toBe('https://cdn.islamic.network/quran/audio/192/en.walk/262.mp3');
+  });
+
+  it('carries the Arabic on from a moment before the verse end, so the next verse starts whole', () => {
+    // Shuraym, Al-Fatihah verse 1 ends (by its timing) a little after verse 2 has begun
+    expect(resumeAfterEnglish({ verse: 1, from: 0, to: 4000 }, 4.04)).toBeCloseTo(3.85);
+    expect(resumeAfterEnglish({ verse: 1, from: 0, to: 4000 }, 3.99)).toBeCloseTo(3.84);
+    // Never back into the verse before
+    expect(resumeAfterEnglish({ verse: 2, from: 4000, to: 4100 }, 4.12)).toBe(4);
   });
 
   it('offers the English after each verse only for reciters with verse timings', () => {

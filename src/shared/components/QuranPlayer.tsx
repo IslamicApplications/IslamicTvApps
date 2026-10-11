@@ -18,6 +18,7 @@ import {
   isEnglishReciter,
   loadRecitation,
   loadSurahText,
+  resumeAfterEnglish,
   resumeStartSeconds,
   resumeTrack,
   saveQuranPosition,
@@ -349,9 +350,9 @@ export function useQuranPlayer(): QuranPlayer {
       if (index === null) return;
       englishVerseRef.current = null;
       english.pause();
-      // Back to where the verse ended, in case the check came a moment late
-      const end = timingsRef.current[index]?.to;
-      if (end !== undefined && audio.currentTime > end / 1000) audio.currentTime = end / 1000;
+      // Back to a moment before the verse's end (resumeAfterEnglish)
+      const timing = timingsRef.current[index];
+      if (timing) audio.currentTime = resumeAfterEnglish(timing, audio.currentTime);
       if (finishAfterEnglishRef.current) {
         if (resume) finishSurah();
         else {

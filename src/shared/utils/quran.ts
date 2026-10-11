@@ -247,6 +247,18 @@ export function verseToTranslate(timings: VerseTiming[], ms: number, done: numbe
   return next < timings.length - 1 && ms >= timings[next].to ? next : null;
 }
 
+/**
+ * Where the Arabic carries on after a verse's English, in seconds: a little before the verse's
+ * end. Some timings end up to ~0.1 s after the next verse has begun (Shuraym, Sudais in Al-Fatihah),
+ * so its first syllable would be split by the English; from here it is heard whole. Where the
+ * timing is right this replays a moment of the pause between the verses.
+ */
+export const REWIND_AFTER_ENGLISH = 0.15;
+
+export function resumeAfterEnglish(timing: VerseTiming, currentTime: number): number {
+  return Math.max(timing.from / 1000, Math.min(currentTime, timing.to / 1000) - REWIND_AFTER_ENGLISH);
+}
+
 /** Audio file and verse timings for one surah by one reciter. */
 export function loadRecitation(reciter: number, surah: number): Promise<Recitation> {
   const r = RECITERS.find((r) => r.id === reciter);
