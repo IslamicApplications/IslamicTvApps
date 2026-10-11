@@ -59,6 +59,18 @@ describe('quran', () => {
     expect((await loadRecitation(9004, 114)).url).toBe('https://cdn.islamic.network/quran/audio-surah/128/en.sudaisandshuraymenglishtranslationpickthallaslamathar/114.mp3');
   });
 
+  it('streams the Oromo translation from the Internet Archive surah by surah', async () => {
+    expect(hasVerseTimings(9101)).toBe(false);
+    expect(canAddEnglish(9101)).toBe(false);
+    expect(isEnglishReciter(9101)).toBe(false);
+    const item = 'https://archive.org/download/Translation_of_the_Noble_Quran_in_the_Oromo_Language-HQ-Audio-MP3/';
+    expect(await loadRecitation(9101, 1)).toEqual({
+      url: item + '001%20-%20Al-Fatihah%20(%20The%20Opening%20)%20-%20%D8%B3%D9%88%D8%B1%D8%A9%20%D8%A7%D9%84%D9%81%D8%A7%D8%AA%D8%AD%D8%A9.mp3',
+      timings: []
+    });
+    expect((await loadRecitation(9101, 114)).url).toMatch(/^.+\/114%20-%20An-Nas/);
+  });
+
   it('carries the English translation on from the verse it stopped at', () => {
     const stopped = { surah: 2, reciter: 9001, time: 4.5, verse: 255 };
     expect(resumeTrack(stopped, 2, 286)).toBe(254);
