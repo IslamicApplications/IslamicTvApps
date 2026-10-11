@@ -210,6 +210,15 @@ describe('Remote control navigation', () => {
     expect(directionScore(from, below, 'up')).toBeNull();
   });
 
+  it('goes along the row past a greyed-out button rather than down into the list', () => {
+    // Quran dialog: "Stop after this surah", the greyed English button (skipped), "Continue…",
+    // and Al-Baqarah in the surah grid just below
+    const stop = rect(230, 262, 225, 57);
+    const continueButton = rect(933, 262, 312, 57);
+    const baqarah = rect(405, 342, 161, 60);
+    expect(directionScore(stop, continueButton, 'right')!).toBeLessThan(directionScore(stop, baqarah, 'right')!);
+  });
+
   it('understands the arrows and Back of different TV remotes', () => {
     expect(keyDirection({ key: 'ArrowUp', keyCode: 38 })).toBe('up');
     expect(keyDirection({ key: 'Left', keyCode: 0 })).toBe('left');

@@ -42,6 +42,11 @@ export interface Reciter {
    */
   roughTimings?: boolean;
   /**
+   * How loud the recitation is (LUFS, measured on Al-Fatihah and Al-Mulk), where it is louder
+   * than the English after each verse (ENGLISH_LOUDNESS): turned down to match while that's on.
+   */
+  loudness?: number;
+  /**
    * English translation: its edition on cdn.islamic.network. Surah by surah (the Arabic
    * recitation with the translation after each verse, no verse timings) or, with
    * `verseByVerse`, one file per verse read in English only, played one after another.
@@ -54,14 +59,14 @@ export interface Reciter {
 
 export const RECITERS: Reciter[] = [
   { id: 7, name: 'Mishary Rashid Alafasy', nameAr: 'مشاري راشد العفاسي' },
-  { id: 3, name: 'Abdur-Rahman as-Sudais', nameAr: 'عبد الرحمن السديس' },
+  { id: 3, name: 'Abdur-Rahman as-Sudais', nameAr: 'عبد الرحمن السديس', loudness: -16.4 },
   { id: 10, name: "Sa'ud ash-Shuraym", nameAr: 'سعود الشريم' },
   { id: 159, name: "Maher al-Mu'aiqly", nameAr: 'ماهر المعيقلي', timingsOff: true },
   { id: 174, name: 'Yasser ad-Dussary', nameAr: 'ياسر الدوسري', roughTimings: true },
-  { id: 2, name: 'Abdul Basit (Murattal)', nameAr: 'عبد الباسط عبد الصمد (مرتل)' },
-  { id: 1, name: 'Abdul Basit (Mujawwad)', nameAr: 'عبد الباسط عبد الصمد (مجود)' },
-  { id: 6, name: 'Mahmoud Khalil al-Husary', nameAr: 'محمود خليل الحصري' },
-  { id: 9, name: 'Mohamed Siddiq al-Minshawi', nameAr: 'محمد صديق المنشاوي' },
+  { id: 2, name: 'Abdul Basit (Murattal)', nameAr: 'عبد الباسط عبد الصمد (مرتل)', loudness: -16.6 },
+  { id: 1, name: 'Abdul Basit (Mujawwad)', nameAr: 'عبد الباسط عبد الصمد (مجود)', loudness: -14.6 },
+  { id: 6, name: 'Mahmoud Khalil al-Husary', nameAr: 'محمود خليل الحصري', loudness: -16.9 },
+  { id: 9, name: 'Mohamed Siddiq al-Minshawi', nameAr: 'محمد صديق المنشاوي', loudness: -12.8 },
   { id: 4, name: 'Abu Bakr al-Shatri', nameAr: 'أبو بكر الشاطري' },
   { id: 13, name: "Sa'd al-Ghamdi", nameAr: 'سعد الغامدي' },
   { id: 5, name: "Hani ar-Rifa'i", nameAr: 'هاني الرفاعي' },
@@ -86,6 +91,19 @@ export function hasVerseTimings(reciter: number): boolean {
 export function canAddEnglish(reciter: number): boolean {
   const r = RECITERS.find((r) => r.id === reciter);
   return !!r && !r.quranCentral && !r.islamicNetwork && !r.timingsOff && !r.roughTimings;
+}
+
+/** Ibrahim Walk's English (LUFS); a browser can't make audio louder, so a louder reciter is turned down */
+export const ENGLISH_LOUDNESS = -19.3;
+
+/**
+ * Volume for the Arabic while the English follows each verse, so the two sound about as loud
+ * (1 when the reciter is no louder than the English, or the English is off).
+ */
+export function arabicVolume(reciter: number, englishAfterVerse: boolean): number {
+  const loudness = RECITERS.find((r) => r.id === reciter)?.loudness;
+  if (!englishAfterVerse || !canAddEnglish(reciter) || loudness === undefined || loudness <= ENGLISH_LOUDNESS) return 1;
+  return Math.round(10 ** ((ENGLISH_LOUDNESS - loudness) / 20) * 100) / 100;
 }
 
 /** The reciter reads in English (its translation is shown whatever the Hadith language). */

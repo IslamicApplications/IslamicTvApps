@@ -38,6 +38,8 @@ function getCandidates(): HTMLElement[] {
 
 export type Rect = Pick<DOMRect, 'left' | 'top' | 'right' | 'bottom' | 'width' | 'height'>;
 
+const OFF_ROW = 100_000;
+
 /**
  * How far `to` is from `from` when moving in `dir` (lower is closer), or null if it isn't
  * in that direction. Measured edge to edge, not centre to centre: a wide button right
@@ -61,14 +63,30 @@ export function directionScore(from: Rect, to: Rect, dir: Direction): number | n
     : Math.max(0, to.left - from.right, from.left - to.right);
   // Among equally close ones, the one most in line with the focused control
   const offCentre = dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx);
-  return ahead + sideways * 2.5 + offCentre * 0.01;
+  // Anything in the same row (or column) comes first, however far along, as on Android TV:
+  // Right goes past a greyed-out button to the next one, not down into the list below
+  const offRow = sideways > 0 ? OFF_ROW : 0;
+  return offRow + ahead + sideways * 2.5 + offCentre * 0.01;
+}
+
+// Each key press looks at every control (136 in the Quran dialog), many in the same list:
+// each ancestor is checked once per press, not once per control
+let scrollsCache = new Map<HTMLElement, boolean>();
+
+function scrolls(p: HTMLElement): boolean {
+  let result = scrollsCache.get(p);
+  if (result === undefined) {
+    const style = getComputedStyle(p);
+    result = /(auto|scroll|hidden)/.test(style.overflowY + style.overflowX) && (p.scrollHeight > p.clientHeight || p.scrollWidth > p.clientWidth);
+    scrollsCache.set(p, result);
+  }
+  return result;
 }
 
 /** The nearest ancestor that scrolls its content (e.g. the surah grid, the reciter row) */
 function scrollContainer(el: HTMLElement): HTMLElement | null {
   for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
-    const style = getComputedStyle(p);
-    if (/(auto|scroll|hidden)/.test(style.overflowY + style.overflowX) && (p.scrollHeight > p.clientHeight || p.scrollWidth > p.clientWidth)) return p;
+    if (scrolls(p)) return p;
   }
   return null;
 }
@@ -88,6 +106,7 @@ function hiddenInOtherList(el: HTMLElement, current: HTMLElement): boolean {
 }
 
 function findNext(current: HTMLElement, candidates: HTMLElement[], dir: Direction): HTMLElement | null {
+  scrollsCache = new Map();
   const from = current.getBoundingClientRect();
   // Inside a scrolling list the arrows stay in it (scrolling it) until its end
   const list = scrollContainer(current);

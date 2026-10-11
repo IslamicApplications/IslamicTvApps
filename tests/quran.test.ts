@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SURAHS, canAddEnglish, cleanTranslation, englishVerseUrl, firstVerseNumber, getQuranSettings, hasVerseTimings, isEnglishReciter, loadRecitation, resumeStartSeconds, resumeTrack, saveQuranSettings, verseAt, verseToTranslate } from '../src/shared/utils/quran';
+import { SURAHS, arabicVolume, canAddEnglish, cleanTranslation, englishVerseUrl, firstVerseNumber, getQuranSettings, hasVerseTimings, isEnglishReciter, loadRecitation, resumeStartSeconds, resumeTrack, saveQuranSettings, verseAt, verseToTranslate } from '../src/shared/utils/quran';
 import { formatDuration } from '../src/shared/components/QuranPlayer';
 
 describe('quran', () => {
@@ -95,6 +95,13 @@ describe('quran', () => {
     expect(hasVerseTimings(174)).toBe(true);
     expect(canAddEnglish(9001)).toBe(false); // already English
     expect(canAddEnglish(9002)).toBe(false);
+  });
+
+  it('turns a louder reciter down to the English level while the English follows each verse', () => {
+    expect(arabicVolume(9, true)).toBe(0.47); // Minshawi, 6.5 dB louder than Ibrahim Walk
+    expect(arabicVolume(9, false)).toBe(1); // English off: as recorded
+    expect(arabicVolume(7, true)).toBe(1); // Alafasy, as loud as the English
+    expect(arabicVolume(174, true)).toBe(1); // Dussary: no English after each verse
   });
 
   it('keeps the English after each verse off until it is turned on', () => {

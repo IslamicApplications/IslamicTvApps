@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { BookOpen, ChevronLeft, ChevronRight, Languages, Pause, Play, Repeat, Square, X } from 'lucide-react';
 import {
   BISMILLAH,
+  arabicVolume,
   QuranPosition,
   QuranSettings,
   RECITERS,
@@ -102,8 +103,12 @@ export function useQuranPlayer(): QuranPlayer {
       saveQuranPosition({ ...loaded, time: audio.currentTime, verse: trackRef.current + 1 });
       return;
     }
-    const timing = timingsRef.current[verseAt(timingsRef.current, audio.currentTime * 1000)];
-    saveQuranPosition({ ...loaded, time: audio.currentTime, verse: timing ? timing.verse : 1 });
+    // While a verse's English is read, the Arabic waits at the verse's end: save a moment
+    // before it, so carrying on (after a reload or a dropped connection) reads that English again
+    const english = englishVerseRef.current !== null ? timingsRef.current[englishVerseRef.current] : undefined;
+    const time = english ? Math.min(audio.currentTime, Math.max(english.from, english.to - 100) / 1000) : audio.currentTime;
+    const timing = timingsRef.current[verseAt(timingsRef.current, time * 1000)];
+    saveQuranPosition({ ...loaded, time, verse: timing ? timing.verse : 1 });
   };
 
   const updateSettings = useCallback((changes: Partial<QuranSettings>) => {
@@ -195,10 +200,12 @@ export function useQuranPlayer(): QuranPlayer {
         trackRef.current = recitation.tracks ? resumeTrack(from, n, recitation.tracks.length) : 0;
         setTimed(recitation.timings.length > 0 || !!recitation.tracks);
         loadedRef.current = { surah: n, reciter };
+        audio.volume = arabicVolume(reciter, settingsRef.current.englishAfterVerse);
         audio.src = recitation.tracks ? recitation.tracks[trackRef.current] : recitation.url;
         const start = resumeStartSeconds(from, n, reciter, recitation.timings);
         // The English follows the verses from here on (not those before the place it carries on from)
         englishDoneRef.current = verseAt(recitation.timings, start * 1000) - 1;
+        preloadEnglishRef.current();
         if (start > 0) {
           await new Promise<void>((resolve) => {
             const done = () => {
@@ -294,6 +301,7 @@ export function useQuranPlayer(): QuranPlayer {
   stopRef.current = stop;
   // Runs often while the Arabic plays with the English on (timeupdate alone comes only ~4 times a second)
   const checkEnglishRef = useRef(() => {});
+  const preloadEnglishRef = useRef(() => {});
   const endEnglishRef = useRef((_resume: boolean) => {});
   useEffect(() => {
     const audio = getAudio();
@@ -323,7 +331,10 @@ export function useQuranPlayer(): QuranPlayer {
       finishAfterEnglishRef.current = finishAfter;
       audio.pause();
       setVerseIndex(index);
-      english.src = englishVerseUrl(loaded.surah, timing.verse);
+      // Usually loaded already, while the Arabic was recited (preloadEnglish)
+      const url = englishVerseUrl(loaded.surah, timing.verse);
+      // (and fetched again if that load failed, e.g. the connection dropped for a moment)
+      if (english.src !== url || english.error) english.src = url;
       english.play().catch((err) => {
         if (err?.name !== 'AbortError') endEnglish();
       });
@@ -352,8 +363,25 @@ export function useQuranPlayer(): QuranPlayer {
       } else if (resume) {
         audio.play().catch(() => {});
       }
+      preloadEnglish();
     };
     endEnglishRef.current = endEnglish;
+
+    /**
+     * Loads the next verse's English into the (idle) English player while the Arabic is
+     * recited, so it starts the moment the verse ends instead of after a download.
+     */
+    const preloadEnglish = () => {
+      const loaded = loadedRef.current;
+      const timing = timingsRef.current[englishDoneRef.current + 1];
+      if (englishVerseRef.current !== null || !loaded || !timing || !englishOn()) return;
+      const url = englishVerseUrl(loaded.surah, timing.verse);
+      if (english.src !== url) {
+        english.src = url;
+        english.load();
+      }
+    };
+    preloadEnglishRef.current = preloadEnglish;
     const onEnglishDone = () => endEnglish();
 
     checkEnglishRef.current = () => {
@@ -454,18 +482,21 @@ export function useQuranPlayer(): QuranPlayer {
     };
   }, []);
 
+  const englishCanPlay = settings.englishAfterVerse && active && !!loadedRef.current && canAddEnglish(loadedRef.current.reciter);
   useEffect(() => {
-    if (!playing || !settings.englishAfterVerse) return;
+    if (!playing || !englishCanPlay) return;
     const timer = setInterval(() => checkEnglishRef.current(), 50);
     return () => clearInterval(timer);
-  }, [playing, settings.englishAfterVerse]);
+  }, [playing, englishCanPlay]);
 
   // Turned on part way through a surah: the English starts with the verse being recited.
   // Turned off while a translation is read: back to the Arabic.
   useEffect(() => {
     const audio = audioRef.current;
+    if (audio && loadedRef.current) audio.volume = arabicVolume(loadedRef.current.reciter, settings.englishAfterVerse);
     if (settings.englishAfterVerse) {
       if (audio && englishVerseRef.current === null) englishDoneRef.current = verseAt(timingsRef.current, audio.currentTime * 1000) - 1;
+      preloadEnglishRef.current();
     } else {
       endEnglishRef.current(!englishAudioRef.current?.paused);
     }
@@ -769,18 +800,29 @@ export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose,
             <Repeat className="w-7 h-7" />
             <span>{t(settings.continuous ? 'Continue to the next surah' : 'Stop after this surah')}</span>
           </button>
-          {canAddEnglish(settings.reciter) && (
-            <button
-              onClick={() => player.updateSettings({ englishAfterVerse: !settings.englishAfterVerse })}
-              aria-pressed={settings.englishAfterVerse}
-              className={`flex items-center gap-3 px-7 py-5 rounded-3xl text-[24px] font-semibold cursor-pointer whitespace-nowrap ${
-                settings.englishAfterVerse ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-white/5 text-neutral-300 border border-white/10'
-              }`}
-            >
-              <Languages className="w-7 h-7" />
-              <span>{t(settings.englishAfterVerse ? 'English translation after each verse' : 'No English translation')}</span>
-            </button>
-          )}
+          {/* Always shown, greyed out (and skipped by the remote) for a reciter it can't follow */}
+          {(() => {
+            const available = canAddEnglish(settings.reciter);
+            const on = available && settings.englishAfterVerse;
+            const label = available
+              ? on ? t('English translation after each verse') : t('No English translation')
+              : isEnglishReciter(settings.reciter) ? t('Already includes English') : t('English translation not available for this reciter');
+            return (
+              <button
+                onClick={() => player.updateSettings({ englishAfterVerse: !settings.englishAfterVerse })}
+                disabled={!available}
+                aria-pressed={on}
+                className={`flex items-center gap-3 px-7 py-5 rounded-3xl text-[24px] font-semibold whitespace-nowrap ${
+                  !available
+                    ? 'bg-white/5 text-neutral-500 border border-white/5 opacity-60 cursor-not-allowed'
+                    : on ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-pointer' : 'bg-white/5 text-neutral-300 border border-white/10 cursor-pointer'
+                }`}
+              >
+                <Languages className="w-7 h-7" />
+                <span>{label}</span>
+              </button>
+            );
+          })()}
           {!player.active && saved && (
             <button
               onClick={() => {
