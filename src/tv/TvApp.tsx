@@ -5,6 +5,7 @@ import { AppLogo } from '../shared/components/AppLogo';
 import { unlockAudio } from '../shared/utils/azanAudio';
 import { useSpatialNavigation } from './useSpatialNavigation';
 import { TvStage } from './TvStage';
+import { PhoneNote } from './PhoneNote';
 import { loadDailyHadithOrBundled } from '../shared/utils/hadithLibrary';
 import { useDocumentLanguage, useI18n } from '../shared/i18n';
 // The Android app allows sound without a key press
@@ -41,6 +42,7 @@ export function TvApp() {
   };
 
   return (
+    <>
     <TvStage>
       {hasStarted ? (
         <>
@@ -73,6 +75,9 @@ export function TvApp() {
         </div>
       )}
     </TvStage>
+    {/* Outside the stage, so it is phone-sized rather than shrunk with the TV screen */}
+    <PhoneNote />
+    </>
   );
 }
 
