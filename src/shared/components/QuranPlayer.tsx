@@ -713,10 +713,12 @@ interface QuranDialogProps {
   /** A surah was picked and is starting */
   onPlay: () => void;
   onStop: () => void;
+  /** On a phone (zoomed to its width): fewer surahs a row, and the buttons wrap */
+  phone?: boolean;
 }
 
 /** Remote-friendly picker: reciter, "continue to the next surah", and the 114 surahs. */
-export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose, onPlay, onStop }) => {
+export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose, onPlay, onStop, phone }) => {
   const { t } = i18n;
   const currentRef = useRef<HTMLButtonElement>(null);
   const { settings } = player;
@@ -790,7 +792,7 @@ export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose,
           </button>
         </div>
 
-        <div className="flex items-center gap-4 mb-6">
+        <div className={`flex items-center gap-4 mb-6 ${phone ? 'flex-wrap' : ''}`}>
           <button
             onClick={() => player.updateSettings({ continuous: !settings.continuous })}
             aria-pressed={settings.continuous}
@@ -857,7 +859,7 @@ export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose,
           )}
         </div>
 
-        <div className="grid grid-cols-6 gap-3 overflow-y-auto p-2">
+        <div className={`grid ${phone ? 'grid-cols-3' : 'grid-cols-6'} gap-3 overflow-y-auto p-2`}>
           {SURAHS.map((s) => {
             const selected = s.n === settings.surah;
             return (
