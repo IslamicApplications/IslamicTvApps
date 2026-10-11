@@ -2,7 +2,8 @@
  * Quran recitation for the TV, from the Quran Foundation's public Quran.com API
  * (https://api-docs.quran.foundation). Audio is streamed from quranicaudio.com;
  * the verse timings let the screen show the verse being recited. A few reciters
- * stream from Quran Central (qurancentral.com) instead, without verse timings.
+ * stream from Quran Central (qurancentral.com) instead, without verse timings, and the
+ * English translations from the Islamic Network's CDN (the files api.alquran.cloud lists).
  */
 import surahsData from '../data/surahs.json';
 
@@ -30,6 +31,15 @@ export interface Reciter {
    * request names another site as the referrer, so index.html sets `no-referrer`.
    */
   quranCentral?: string;
+  /**
+   * English translation: its edition on cdn.islamic.network. Surah by surah (the Arabic
+   * recitation with the translation after each verse, no verse timings) or, with
+   * `verseByVerse`, one file per verse read in English only, played one after another.
+   */
+  islamicNetwork?: string;
+  verseByVerse?: boolean;
+  /** Read in English, so its translation shows whatever the Hadith language */
+  english?: boolean;
 }
 
 export const RECITERS: Reciter[] = [
@@ -45,12 +55,23 @@ export const RECITERS: Reciter[] = [
   { id: 4, name: 'Abu Bakr al-Shatri', nameAr: 'أبو بكر الشاطري' },
   { id: 13, name: "Sa'd al-Ghamdi", nameAr: 'سعد الغامدي' },
   { id: 5, name: "Hani ar-Rifa'i", nameAr: 'هاني الرفاعي' },
-  { id: 2919, name: 'Muhammad al-Faqih', nameAr: 'محمد الفقيه', quranCentral: 'muhammad-al-faqih' }
+  { id: 2919, name: 'Muhammad al-Faqih', nameAr: 'محمد الفقيه', quranCentral: 'muhammad-al-faqih' },
+  // English translations (ids of our own, above Quran.com's)
+  { id: 9001, name: 'English: Ibrahim Walk (Saheeh International)', nameAr: 'ترجمة إنجليزية: إبراهيم ووك (صحيح إنترناشونال)', islamicNetwork: 'en.walk', verseByVerse: true, english: true },
+  { id: 9002, name: 'Alafasy + English (Saheeh International)', nameAr: 'العفاسي + ترجمة إنجليزية (صحيح إنترناشونال)', islamicNetwork: 'en.misharyrashidalafasyenglishtranslationsaheehibrahimwalk', english: true },
+  { id: 9003, name: 'Muhammad Ayyub + English (Muhsin Khan)', nameAr: 'محمد أيوب + ترجمة إنجليزية (محسن خان)', islamicNetwork: 'en.muhammadayyubenglishtranslationmuhsinkhanmikaalwaters', english: true },
+  { id: 9004, name: 'Sudais & Shuraym + English (Pickthall)', nameAr: 'السديس والشريم + ترجمة إنجليزية (بكثال)', islamicNetwork: 'en.sudaisandshuraymenglishtranslationpickthallaslamathar', english: true }
 ];
 
 /** False for reciters whose recitations have no verse timings (the verse can't be followed). */
 export function hasVerseTimings(reciter: number): boolean {
-  return !RECITERS.find((r) => r.id === reciter)?.quranCentral;
+  const r = RECITERS.find((r) => r.id === reciter);
+  return !r?.quranCentral && (!r?.islamicNetwork || !!r.verseByVerse);
+}
+
+/** The reciter reads in English (its translation is shown whatever the Hadith language). */
+export function isEnglishReciter(reciter: number): boolean {
+  return !!RECITERS.find((r) => r.id === reciter)?.english;
 }
 
 export const BISMILLAH = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ';
@@ -116,12 +137,19 @@ export function saveQuranPosition(position: QuranPosition | null): void {
 
 /**
  * Where to start a surah, in seconds: the saved second with the same reciter, the start
- * of the same verse with another reciter, or the beginning.
+ * of the same verse with another reciter, or the beginning. For a reciter with one file
+ * per verse, the file is the saved verse's (see resumeTrack) and the time is within it.
  */
 export function resumeStartSeconds(from: QuranPosition | null | undefined, surah: number, reciter: number, timings: VerseTiming[]): number {
   if (!from || from.surah !== surah) return 0;
   if (from.reciter === reciter) return from.time;
   return (timings.find((t) => t.verse === from.verse)?.from ?? 0) / 1000;
+}
+
+/** For a reciter with one file per verse: the file (verse index) to start the surah at. */
+export function resumeTrack(from: QuranPosition | null | undefined, surah: number, trackCount: number): number {
+  if (!from || from.surah !== surah) return 0;
+  return Math.min(Math.max(from.verse - 1, 0), trackCount - 1);
 }
 
 export interface VerseTiming {
@@ -135,6 +163,8 @@ export interface VerseTiming {
 export interface Recitation {
   url: string;
   timings: VerseTiming[];
+  /** One file per verse, played in turn (url is the first) */
+  tracks?: string[];
 }
 
 export interface SurahText {
@@ -152,11 +182,25 @@ async function getJson(url: string): Promise<any> {
   return res.json();
 }
 
+/** Number of the surah's first verse counting from the start of the Quran (Al-Fatihah 1 is 1). */
+export function firstVerseNumber(surah: number): number {
+  return SURAHS.slice(0, surah - 1).reduce((n, s) => n + s.verses, 0) + 1;
+}
+
 /** Audio file and verse timings for one surah by one reciter. */
 export function loadRecitation(reciter: number, surah: number): Promise<Recitation> {
-  const folder = RECITERS.find((r) => r.id === reciter)?.quranCentral;
-  if (folder) {
-    return Promise.resolve({ url: `https://podcasts.qurancentral.com/${folder}/${String(surah).padStart(3, '0')}.mp3`, timings: [] });
+  const r = RECITERS.find((r) => r.id === reciter);
+  if (r?.quranCentral) {
+    return Promise.resolve({ url: `https://podcasts.qurancentral.com/${r.quranCentral}/${String(surah).padStart(3, '0')}.mp3`, timings: [] });
+  }
+  if (r?.islamicNetwork && r.verseByVerse) {
+    // Files are numbered through the whole Quran
+    const first = firstVerseNumber(surah);
+    const tracks = Array.from({ length: SURAHS[surah - 1].verses }, (_, i) => `https://cdn.islamic.network/quran/audio/192/${r.islamicNetwork}/${first + i}.mp3`);
+    return Promise.resolve({ url: tracks[0], timings: [], tracks });
+  }
+  if (r?.islamicNetwork) {
+    return Promise.resolve({ url: `https://cdn.islamic.network/quran/audio-surah/128/${r.islamicNetwork}/${surah}.mp3`, timings: [] });
   }
   const key = `${reciter}:${surah}`;
   if (!recitationCache.has(key)) {

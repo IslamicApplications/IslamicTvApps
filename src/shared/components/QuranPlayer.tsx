@@ -12,9 +12,11 @@ import {
   getQuranPosition,
   getQuranSettings,
   hasVerseTimings,
+  isEnglishReciter,
   loadRecitation,
   loadSurahText,
   resumeStartSeconds,
+  resumeTrack,
   saveQuranPosition,
   saveQuranSettings,
   verseAt
@@ -66,6 +68,9 @@ export function useQuranPlayer(): QuranPlayer {
   const [text, setText] = useState<SurahText | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timingsRef = useRef<VerseTiming[]>([]);
+  // A reciter with one file per verse: the files and the one playing (its verse index)
+  const tracksRef = useRef<string[] | null>(null);
+  const trackRef = useRef(0);
   // Increases with every play/stop, so a slow request for an older surah is ignored
   const tokenRef = useRef(0);
   // The surah and reciter in the audio element, once its recitation has loaded
@@ -83,6 +88,11 @@ export function useQuranPlayer(): QuranPlayer {
     const audio = audioRef.current;
     const loaded = loadedRef.current;
     if (!audio || !loaded || !(audio.currentTime > 0)) return;
+    if (tracksRef.current) {
+      // The time is within the verse's own file
+      saveQuranPosition({ ...loaded, time: audio.currentTime, verse: trackRef.current + 1 });
+      return;
+    }
     const timing = timingsRef.current[verseAt(timingsRef.current, audio.currentTime * 1000)];
     saveQuranPosition({ ...loaded, time: audio.currentTime, verse: timing ? timing.verse : 1 });
   };
@@ -141,6 +151,7 @@ export function useQuranPlayer(): QuranPlayer {
       setProgress(0);
       setText(null);
       timingsRef.current = [];
+      tracksRef.current = null;
       loadSurahText(n)
         .then((t) => token === tokenRef.current && setText(t))
         .catch(() => {});
@@ -148,9 +159,11 @@ export function useQuranPlayer(): QuranPlayer {
         const recitation = await loadRecitation(reciter, n);
         if (token !== tokenRef.current) return;
         timingsRef.current = recitation.timings;
-        setTimed(recitation.timings.length > 0);
+        tracksRef.current = recitation.tracks ?? null;
+        trackRef.current = recitation.tracks ? resumeTrack(from, n, recitation.tracks.length) : 0;
+        setTimed(recitation.timings.length > 0 || !!recitation.tracks);
         loadedRef.current = { surah: n, reciter };
-        audio.src = recitation.url;
+        audio.src = recitation.tracks ? recitation.tracks[trackRef.current] : recitation.url;
         const start = resumeStartSeconds(from, n, reciter, recitation.timings);
         if (start > 0) {
           await new Promise<void>((resolve) => {
@@ -257,17 +270,35 @@ export function useQuranPlayer(): QuranPlayer {
     };
     const onWaiting = () => setLoading(true);
     const onTime = () => {
-      const ms = audio.currentTime * 1000;
-      const timing = timingsRef.current[verseAt(timingsRef.current, ms)];
-      setVerseIndex(timing ? timing.verse - 1 : 0);
-      // Rounded so the screen re-renders only when the bar visibly moves
-      if (audio.duration) setProgress(Math.round((audio.currentTime / audio.duration) * 1000) / 1000);
+      const tracks = tracksRef.current;
+      if (tracks) {
+        setVerseIndex(trackRef.current);
+        const withinVerse = audio.duration ? audio.currentTime / audio.duration : 0;
+        setProgress(Math.round(((trackRef.current + withinVerse) / tracks.length) * 1000) / 1000);
+      } else {
+        const ms = audio.currentTime * 1000;
+        const timing = timingsRef.current[verseAt(timingsRef.current, ms)];
+        setVerseIndex(timing ? timing.verse - 1 : 0);
+        // Rounded so the screen re-renders only when the bar visibly moves
+        if (audio.duration) setProgress(Math.round((audio.currentTime / audio.duration) * 1000) / 1000);
+      }
       if (!audio.paused && Date.now() - lastSaveRef.current > 3000) {
         lastSaveRef.current = Date.now();
         savePosition();
       }
     };
     const onEnded = () => {
+      // One file per verse: on to the next verse's
+      const tracks = tracksRef.current;
+      if (tracks && trackRef.current < tracks.length - 1) {
+        trackRef.current++;
+        setVerseIndex(trackRef.current);
+        audio.src = tracks[trackRef.current];
+        audio.play().catch((err) => {
+          if (err?.name !== 'AbortError') onError();
+        });
+        return;
+      }
       // Finished: nothing to carry on from
       loadedRef.current = null;
       saveQuranPosition(null);
@@ -412,7 +443,8 @@ export const QuranNowPlaying: React.FC<QuranNowPlayingProps> = ({ player, i18n, 
   const english = player.timed ? text?.english[verseIndex] : undefined;
   const verseNumber = verseIndex + 1;
   const showBismillah = player.timed && verseIndex === 0 && surah.bismillah && surah.n !== 1;
-  const translationShown = showTranslation && english && (arabic?.length ?? 0) < 520;
+  // An English reading shows its translation whatever the Hadith language
+  const translationShown = (showTranslation || isEnglishReciter(player.settings.reciter)) && english && (arabic?.length ?? 0) < 520;
   const verseAreaRef = useRef<HTMLDivElement>(null);
   const [sizeStep, setSizeStep] = useState(0);
   useLayoutEffect(() => setSizeStep(0), [arabic, translationShown]);
