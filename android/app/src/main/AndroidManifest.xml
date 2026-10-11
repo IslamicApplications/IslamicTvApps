@@ -7,6 +7,10 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Android 10+ only lets an app open itself at start-up with "Display over other apps" allowed -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- "Open for the Azan" (off unless turned on in the Azan menu): an alarm at each Azan
+         time, to the minute when "Alarms & reminders" is allowed, that wakes the TV from standby -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Runs on Google TV / Android TV (no touch screen), phones and tablets -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -40,7 +44,14 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <!-- Alarms are lost on restart and app updates: set the Azan alarm again -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".AzanAlarmReceiver"
+            android:exported="false" />
     </application>
 </manifest>

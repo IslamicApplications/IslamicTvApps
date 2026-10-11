@@ -2,6 +2,7 @@ package org.islamicapplications.tv;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
@@ -34,6 +35,13 @@ public class MainActivity extends Activity {
     private WebView web;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable retry = () -> web.loadUrl(APP_URL);
+
+    /** The app is on screen (read by AzanAlarmReceiver: no need to open it) */
+    static volatile boolean inFront;
+    /** Opened by the Azan alarm: that Azan's time (0 otherwise), until the prayer is over or the remote is used */
+    private long wakeAzanAt;
+    private boolean wakeWasAsleep;
+    private boolean wakeOtherApp;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,6 +82,11 @@ public class MainActivity extends Activity {
             }
         });
 
+        // "Open for the Azan" is for TVs only (on a phone it would interrupt calls and other apps)
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+            web.addJavascriptInterface(new AzanBridge(this), "IslamicTvAzan");
+        }
+
         setContentView(web);
         hideSystemBars();
         // Android 13+ (and every Android 16+ device) sends Back here, not as a key
@@ -82,6 +95,82 @@ public class MainActivity extends Activity {
         }
         if (savedInstanceState == null || web.restoreState(savedInstanceState) == null) web.loadUrl(APP_URL);
         web.requestFocus();
+        handleAzanAlarm(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleAzanAlarm(intent);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        inFront = true;
+        // "Alarms & reminders" may have just been allowed in the TV's settings
+        AzanAlarms.scheduleNext(this);
+    }
+
+    @Override
+    protected void onPause() {
+        inFront = false;
+        super.onPause();
+    }
+
+    /** Opened by the Azan alarm: the screen turns on (over the lock screen) and the page is told by wakeAzanAt. */
+    private void handleAzanAlarm(Intent intent) {
+        long azanAt = intent == null ? 0 : intent.getLongExtra(AzanAlarms.EXTRA_AZAN_AT, 0);
+        if (azanAt == 0) return;
+        intent.removeExtra(AzanAlarms.EXTRA_AZAN_AT);
+        wakeAzanAt = azanAt;
+        wakeWasAsleep = intent.getBooleanExtra(AzanAlarmReceiver.EXTRA_WAS_ASLEEP, false);
+        wakeOtherApp = intent.getBooleanExtra(AzanAlarmReceiver.EXTRA_OTHER_APP, false);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        } else {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+        }
+    }
+
+    /** The Azan time the alarm opened the app for, until the prayer is over (0: not opened by it). */
+    long azanWakePending() {
+        return wakeAzanAt;
+    }
+
+    /**
+     * The Azan, the Iqamah and the prayer are over: back to the app that was on, or, if
+     * the TV was in standby, the TV's own sleep timer may turn it off again.
+     */
+    void finishAzanWake() {
+        if (wakeAzanAt == 0) return;
+        boolean otherApp = wakeOtherApp;
+        boolean wasAsleep = wakeWasAsleep;
+        endAzanWake();
+        if (otherApp) moveTaskToBack(true);
+        else if (wasAsleep) getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+
+    /** The remote was used (or the prayer is over): the app no longer goes back by itself. */
+    private void endAzanWake() {
+        wakeAzanAt = 0;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(false);
+            setTurnScreenOn(false);
+        } else {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+        }
+    }
+
+    @Override
+    public void onUserInteraction() {
+        super.onUserInteraction();
+        // Someone has the remote: the app stays, and the screen stays on as usual
+        if (wakeAzanAt != 0) endAzanWake();
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     @Override
@@ -102,6 +191,9 @@ public class MainActivity extends Activity {
      * as it does after Home.
      */
     private void onBack() {
+        // (Android 13+ Back doesn't count as onUserInteraction)
+        if (wakeAzanAt != 0) endAzanWake();
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         web.evaluateJavascript("window.tvBack ? window.tvBack() : false", (handled) -> {
             if ("true".equals(handled)) return;
             if (web.canGoBack()) {

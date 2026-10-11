@@ -27,6 +27,10 @@ export interface AzanSettings {
   selectedDua?: DuaId;
   /** TV: play the Du'a when the Azan ends (on unless turned off) */
   duaAfterAzan?: boolean;
+  /** Android TV app: open over other apps and wake the TV from standby for the Azan (off unless turned on) */
+  openForAzan?: boolean;
+  /** Prayers it doesn't open for (false); the others open it */
+  openForPrayers?: Partial<Record<AzanPrayer, boolean>>;
   lastPlayedPrayerKey?: string;
 }
 
