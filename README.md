@@ -75,6 +75,8 @@ npm run dev
 npm run build
 ```
 
+**Dev site**: pushing to the `dev` branch publishes it to https://islamicapplications.github.io/IslamicTvApps/dev/ (`.github/workflows/deploy-dev.yml`), to try changes on a TV before they reach `main`. Only `dev/` on `gh-pages` changes, so the live site and the TVs running it are left alone. The dev site shares the live site's address, so a browser that opens both shares its settings between them.
+
 ## Tests
 
 `npm test` checks prayer times for every mosque over a year, the match with Awqat, daylight saving, the Hijri calendar, the Arabic interface and the daily Hadith order. It also checks the TV's own features (`tests/tvFeatures.test.ts`): the Iqamah countdown and prayer screen, when the Iqamah sound plays (live only, once, muted or off), carrying the Quran on from where it stopped, and the settings import. `.github/workflows/test.yml` runs them on every push.

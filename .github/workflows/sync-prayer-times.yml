@@ -84,7 +84,8 @@ jobs:
           git fetch origin gh-pages
           git worktree add --detach ../ghp origin/gh-pages
           cd ../ghp
-          git rm -rq .
+          # Everything but dev/, the dev branch's site (deploy-dev.yml)
+          git rm -rq -- . ':(exclude)dev'
           cp -R "$GITHUB_WORKSPACE/dist/." .
           printf '.DS_Store\n' > .gitignore
           git add -A
