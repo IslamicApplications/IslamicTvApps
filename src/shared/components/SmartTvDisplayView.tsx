@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Hadith } from '../types/hadith';
 import dailyPoolData from '../data/daily_pool.json';
 import { getHijriDate } from '../utils/hijri';
@@ -58,6 +58,7 @@ import { IslamicPattern, IslamicCornerOrnament } from './IslamicPattern';
 import { RamadanAccent } from './RamadanAccent';
 import { useReloadOnUpdate } from '../hooks/useReloadOnUpdate';
 import { IN_ANDROID_APP } from '../utils/androidApp';
+import { azanBridge, azanWakeStatus, azanWakeStep, upcomingAzanAlarms, AzanWakeStatus } from '../utils/azanWake';
 import { handleBack, isBackKey } from '../hooks/useBackHandler';
 import { THEMES, nextTheme, useAppTheme } from '../theme';
 import { AppLogo } from './AppLogo';
@@ -220,6 +221,45 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose,
   }, [clockDate, quran.pausedForPrayer]);
   // In the Android app, a newer deployed version loads by itself at a quiet moment
   useReloadOnUpdate(IN_ANDROID_APP, !prayerPhase && !isAzanPlaying() && !quran.active && !openDialog);
+  // Android TV app, "Open for the Azan": the app keeps an alarm for the next Azan, which
+  // brings it over other apps and out of standby (sent again daily and when settings change)
+  const bridge = phone ? null : azanBridge();
+  const azanAlarmsJson = useMemo(
+    () => (bridge ? JSON.stringify(upcomingAzanAlarms(prayerData.mosque, azanSettings)) : ''),
+    [!!bridge, prayerData.mosque, azanSettings, prayerData.localDateKey, prayerData.nextPrayer.name, prayerData.nextPrayer.time]
+  );
+  useEffect(() => {
+    try {
+      bridge?.setAlarms(azanAlarmsJson);
+    } catch {}
+  }, [azanAlarmsJson]);
+  // Opened by that alarm: once the Azan, Iqamah and prayer are over, back to what was on
+  const azanWakeSeenRef = useRef(false);
+  useEffect(() => {
+    if (!bridge) return;
+    try {
+      azanWakeStep(bridge, prayerPhase !== null || isAzanPlaying(), clockDate.getTime(), azanWakeSeenRef);
+    } catch {}
+  }, [clockDate]);
+  // The two permissions it needs, read every 2 seconds while the Azan menu is open (the app's
+  // page isn't told when the TV's settings page, opened by Allow, closes again)
+  const [wakeStatus, setWakeStatus] = useState<AzanWakeStatus | null>(() => (bridge ? azanWakeStatus(bridge) : null));
+  useEffect(() => {
+    if (!bridge || openDialog !== 'azan') return;
+    const update = () =>
+      setWakeStatus((old) => {
+        const status = azanWakeStatus(bridge);
+        return old && old.exact === status.exact && old.overlay === status.overlay ? old : status;
+      });
+    update();
+    const timer = setInterval(update, 2000);
+    return () => clearInterval(timer);
+  }, [openDialog]);
+  // Allow goes once both are allowed: the remote's focus moves to the On/Off button beside it
+  const openForAzanButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (openDialog === 'azan' && (!document.activeElement || document.activeElement === document.body)) openForAzanButtonRef.current?.focus();
+  }, [wakeStatus]);
   // When the Iqamah countdown ends, the Iqamah plays once (only live: not when the TV is
   // switched on later in the prayer; off with Auto-Azan muted or the Iqamah turned off)
   useEffect(() => {
@@ -608,6 +648,13 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose,
     else delete iqamahPrayers[prayer];
     updateAzanSettings({ ...azanSettings, iqamahPrayers });
   };
+  const openForAzan = !!azanSettings.openForAzan;
+  const toggleOpenFor = (prayer: AzanPrayer) => {
+    const openForPrayers = { ...azanSettings.openForPrayers };
+    if (openForPrayers[prayer] !== false) openForPrayers[prayer] = false;
+    else delete openForPrayers[prayer];
+    updateAzanSettings({ ...azanSettings, openForPrayers });
+  };
 
 
   const mosquesByState = getAllMosques()
@@ -736,6 +783,20 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose,
                         {t(iqamahFor(row.key as AzanPrayer) ? 'Iqamah on' : 'Iqamah off')}
                       </button>
                     )}
+                    {!isDefaultRow && bridge && openForAzan && (
+                      <button
+                        onClick={() => toggleOpenFor(row.key as AzanPrayer)}
+                        aria-pressed={azanSettings.openForPrayers?.[row.key as AzanPrayer] !== false}
+                        className={`min-w-[170px] px-5 py-3 rounded-2xl text-[20px] font-bold text-center whitespace-nowrap cursor-pointer ${
+                          azanSettings.openForPrayers?.[row.key as AzanPrayer] !== false
+                            ? 'bg-sky-500/20 text-sky-200 hover:bg-sky-500/30'
+                            : 'bg-white/5 text-neutral-500 hover:bg-white/15'
+                        }`}
+                        title={t('Open the app for the {prayer} Azan or not', { prayer: row.label })}
+                      >
+                        {t(azanSettings.openForPrayers?.[row.key as AzanPrayer] !== false ? 'Opens' : "Doesn't open")}
+                      </button>
+                    )}
                     <button
                       onClick={() => togglePreview(row.key, effective)}
                       className={`p-4 rounded-2xl cursor-pointer ${isPreviewing ? 'bg-rose-500 text-white' : 'bg-amber-500 text-neutral-950'}`}
@@ -771,6 +832,49 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose,
                   {previewingRow === 'iqamah' ? <Square className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current" />}
                 </button>
               </div>
+              {/* Android TV app: open over other apps and out of standby for the Azan */}
+              {bridge && (
+                <div className="azan-row flex items-center gap-6 px-7 py-2.5 rounded-3xl border bg-sky-500/10 border-sky-500/30">
+                  <div className="azan-label w-[300px] shrink-0 text-[28px] font-bold text-white">{t('Open for the Azan')}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[22px] text-neutral-200">
+                      {t(
+                        !openForAzan
+                          ? 'Off: the Azan plays only while the app is on screen'
+                          : !azanSettings.autoAzanEnabled
+                            ? 'Waiting: the Azan sound is off'
+                            : 'Turns the TV on and opens over other apps for the Azan and Iqamah, then goes back'
+                      )}
+                    </div>
+                    {openForAzan && wakeStatus && !wakeStatus.overlay && (
+                      <div className="text-[20px] text-rose-300">{t('Needs "Display over other apps" allowed')}</div>
+                    )}
+                    {openForAzan && wakeStatus && wakeStatus.overlay && !wakeStatus.exact && (
+                      <div className="text-[20px] text-amber-300">{t('Allow "Alarms & reminders" so it opens on the minute (now up to 10 minutes early)')}</div>
+                    )}
+                  </div>
+                  {openForAzan && wakeStatus && (!wakeStatus.overlay || !wakeStatus.exact) && (
+                    <button
+                      onClick={() => (wakeStatus.overlay ? bridge.openExactAlarmSettings() : bridge.openOverlaySettings())}
+                      className="px-7 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-[22px] font-bold text-white whitespace-nowrap cursor-pointer"
+                      title={t('Open the TV settings to allow it')}
+                    >
+                      {t('Allow')}
+                    </button>
+                  )}
+                  <button
+                    ref={openForAzanButtonRef}
+                    onClick={() => updateAzanSettings({ ...azanSettings, openForAzan: !openForAzan })}
+                    aria-pressed={openForAzan}
+                    className={`px-7 py-3 rounded-2xl text-[22px] font-bold cursor-pointer ${
+                      openForAzan ? 'bg-sky-500/25 text-sky-200 hover:bg-sky-500/35' : 'bg-white/10 text-neutral-300 hover:bg-white/20'
+                    }`}
+                    title={t('Turn opening for the Azan on or off')}
+                  >
+                    {t(openForAzan ? 'On' : 'Off')}
+                  </button>
+                </div>
+              )}
               {/* The Du'a after the Azan: which recitation (shown once there is more than one) */}
               {DUA_IDS.length > 1 && (
                 <div className="azan-row flex items-center gap-6 px-7 py-2.5 rounded-3xl border bg-white/5 border-white/10">

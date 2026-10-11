@@ -152,4 +152,5 @@ PRIVATE
 
 - **"Minimum functionality" / "just a website"**: reply that it's a dedicated TV display that opens at start-up, keeps the screen on, and plays the Azan and Iqamah automatically without interaction — things a browser can't do on a TV. Pointing to the description and screenshots usually helps.
 - **Opening at start-up / "Display over other apps"**: ask me for a Play build without the start-up receiver and that permission (the GitHub APK can keep it).
+- **"Open for the Azan" / exact alarms**: the app declares `SCHEDULE_EXACT_ALARM` (the user allows it in Settings; no declaration form, unlike `USE_EXACT_ALARM`) and opens itself at the Azan only when the user turns it on in the Azan menu. If asked, reply that the Azan is a time-critical call to prayer the user chose to be woken for, like an alarm clock.
 - **Background audio** (the Azan/Quran keep playing when another app is open): ask me to pause the Quran when the app is in the background in the Play build; the Azan at prayer time is the app's purpose and can be explained in the reply.

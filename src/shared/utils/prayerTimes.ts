@@ -465,6 +465,18 @@ export function calculateMosquePrayerTimes(
   };
 }
 
+/**
+ * The moment (epoch ms) of a wall-clock time at the mosque, `minutes` after midnight on
+ * the mosque's day that `date` falls on (also across the night the clocks change).
+ */
+export function mosqueTimeToEpoch(mosque: Mosque, date: Date, minutes: number): number {
+  const timeZone = STATE_TIMEZONES[mosque.state?.toUpperCase()];
+  const clock = getZonedClock(date, timeZone);
+  const wall = Date.UTC(clock.year, clock.month - 1, clock.day) + Math.round(minutes * 60_000);
+  const guess = wall - clock.offsetHours * 3_600_000;
+  return wall - getZonedClock(new Date(guess), timeZone).offsetHours * 3_600_000;
+}
+
 /** Jumu'ah times: the mosque's Awqat notice or own timetable when they give them, else the app's list. */
 export function getMosqueJumuah(mosque: Mosque): string {
   return getAwqatJumuah(mosque.id) ?? getTimetableJumuah(mosque.id) ?? mosque.jumuah;
