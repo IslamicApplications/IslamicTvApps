@@ -11,6 +11,11 @@ export const BACK_PRIORITY = { prayerScreen: 1, azanPopup: 2 } as const;
 type BackHandler = { priority: number; onBack: () => void };
 const handlers = new Set<BackHandler>();
 
+/** The remote's Back: Escape in a browser, GoBack on Android TV, 461 on LG webOS, 10009 on Samsung Tizen */
+export function isBackKey(e: Pick<KeyboardEvent, 'key' | 'keyCode'>): boolean {
+  return e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack' || e.keyCode === 461 || e.keyCode === 10009;
+}
+
 /** Closes the topmost screen that has a Back handler; false if none is open. */
 export function handleBack(): boolean {
   let top: BackHandler | null = null;

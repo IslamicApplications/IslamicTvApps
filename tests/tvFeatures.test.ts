@@ -5,7 +5,8 @@ import { getPrayerPhase, quranMayContinue, shouldPlayIqamah } from '../src/share
 import { claimIqamahTrigger, DEFAULT_AZAN_SETTINGS, DUA_IDS, DUA_SOURCES, getDuaForSettings, isDuaAfterAzanOn } from '../src/shared/utils/azanAudio';
 import { getQuranPosition, resumeStartSeconds, saveQuranPosition } from '../src/shared/utils/quran';
 import { importSettingsFromHash } from '../src/tv/importSettings';
-import { confirmLeave } from '../src/shared/hooks/useBackHandler';
+import { confirmLeave, isBackKey } from '../src/shared/hooks/useBackHandler';
+import { directionScore, keyDirection, type Rect } from '../src/tv/useSpatialNavigation';
 
 const amssa = INITIAL_MOSQUES.find((m) => m.id === 'amssa')!;
 // Saturday 3 October 2026 at AMSSA: Maghrib Adhan 6:29 pm, Iqamah 6:34 pm
@@ -183,5 +184,40 @@ describe('Back on the prayer times (Android app)', () => {
     expect(confirmLeave(t + 10_000)).toBe(false); // a new first press
     expect(confirmLeave(t + 14_000)).toBe(false); // too late: the note shows again
     expect(confirmLeave(t + 15_000)).toBe(true);
+  });
+});
+
+describe('Remote control navigation', () => {
+  const rect = (left: number, top: number, width: number, height: number): Rect =>
+    ({ left, top, width, height, right: left + width, bottom: top + height });
+
+  it('goes up to a wide button right above, not to a small one further up (Quran dialog)', () => {
+    // Positions measured in the Quran dialog: Al-Fatihah, the "next surah" toggle above it
+    // (centre well to the right) and the small "Previous reciter" arrow above that
+    const fatihah = rect(281, 335, 161, 60);
+    const toggle = rect(276, 255, 279, 57);
+    const previousReciter = rect(337, 185, 46, 46);
+    expect(directionScore(fatihah, toggle, 'up')!).toBeLessThan(directionScore(fatihah, previousReciter, 'up')!);
+  });
+
+  it('prefers the same column in a grid, then the same row', () => {
+    const from = rect(100, 100, 160, 60);
+    const below = rect(100, 170, 160, 60);
+    const belowRight = rect(270, 170, 160, 60);
+    expect(directionScore(from, below, 'down')!).toBeLessThan(directionScore(from, belowRight, 'down')!);
+    expect(directionScore(from, belowRight, 'right')).not.toBeNull();
+    expect(directionScore(from, below, 'right')).toBeNull();
+    expect(directionScore(from, below, 'up')).toBeNull();
+  });
+
+  it('understands the arrows and Back of different TV remotes', () => {
+    expect(keyDirection({ key: 'ArrowUp', keyCode: 38 })).toBe('up');
+    expect(keyDirection({ key: 'Left', keyCode: 0 })).toBe('left');
+    expect(keyDirection({ key: 'Unidentified', keyCode: 40 })).toBe('down');
+    expect(keyDirection({ key: 'Enter', keyCode: 13 })).toBeUndefined();
+    expect(isBackKey({ key: 'GoBack', keyCode: 4 })).toBe(true);
+    expect(isBackKey({ key: 'Unidentified', keyCode: 461 })).toBe(true); // LG webOS
+    expect(isBackKey({ key: 'XF86Back', keyCode: 10009 })).toBe(true); // Samsung Tizen
+    expect(isBackKey({ key: 'Enter', keyCode: 13 })).toBe(false);
   });
 });
