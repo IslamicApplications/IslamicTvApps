@@ -482,6 +482,8 @@ export const AR: Record<string, string> = {
   'Next reciter': 'القارئ التالي',
   'Continue to the next surah': 'متابعة السورة التالية',
   'Stop after this surah': 'التوقف بعد هذه السورة',
+  'English translation after each verse': 'الترجمة الإنجليزية بعد كل آية',
+  'No English translation': 'بدون ترجمة إنجليزية',
   'Stop and show Hadiths': 'إيقاف وعرض الأحاديث',
   'Choose Surah': 'اختيار السورة',
   'Continue {surah} from verse {n}': 'متابعة سورة {surah} من الآية {n}',

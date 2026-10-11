@@ -64,9 +64,42 @@ export function directionScore(from: Rect, to: Rect, dir: Direction): number | n
   return ahead + sideways * 2.5 + offCentre * 0.01;
 }
 
+/** The nearest ancestor that scrolls its content (e.g. the surah grid, the reciter row) */
+function scrollContainer(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+    const style = getComputedStyle(p);
+    if (/(auto|scroll|hidden)/.test(style.overflowY + style.overflowX) && (p.scrollHeight > p.clientHeight || p.scrollWidth > p.clientWidth)) return p;
+  }
+  return null;
+}
+
+/**
+ * Scrolled (even partly) out of sight in another list: not a target, or a half-hidden row
+ * behind the buttons above a list would catch the arrows. In the list the focus is in, the
+ * next item out of sight is a target, so the arrows scroll the list.
+ */
+function hiddenInOtherList(el: HTMLElement, current: HTMLElement): boolean {
+  const container = scrollContainer(el);
+  if (!container || container.contains(current)) return false;
+  const box = container.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  const slack = 2;
+  return r.left < box.left - slack || r.right > box.right + slack || r.top < box.top - slack || r.bottom > box.bottom + slack;
+}
+
 function findNext(current: HTMLElement, candidates: HTMLElement[], dir: Direction): HTMLElement | null {
   const from = current.getBoundingClientRect();
+  // Inside a scrolling list the arrows stay in it (scrolling it) until its end
+  const list = scrollContainer(current);
+  if (list) {
+    const inList = candidates.filter((el) => list.contains(el));
+    const next = bestInDirection(from, current, inList, dir);
+    if (next) return next;
+  }
+  return bestInDirection(from, current, candidates.filter((el) => !hiddenInOtherList(el, current)), dir);
+}
 
+function bestInDirection(from: Rect, current: HTMLElement, candidates: HTMLElement[], dir: Direction): HTMLElement | null {
   let best: HTMLElement | null = null;
   let bestScore = Infinity;
 

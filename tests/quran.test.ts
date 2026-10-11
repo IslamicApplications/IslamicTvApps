@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SURAHS, cleanTranslation, firstVerseNumber, hasVerseTimings, isEnglishReciter, loadRecitation, resumeStartSeconds, resumeTrack, verseAt } from '../src/shared/utils/quran';
+import { SURAHS, canAddEnglish, cleanTranslation, englishVerseUrl, firstVerseNumber, getQuranSettings, hasVerseTimings, isEnglishReciter, loadRecitation, resumeStartSeconds, resumeTrack, saveQuranSettings, verseAt, verseToTranslate } from '../src/shared/utils/quran';
 import { formatDuration } from '../src/shared/components/QuranPlayer';
 
 describe('quran', () => {
@@ -68,6 +68,36 @@ describe('quran', () => {
     const arabic = { surah: 2, reciter: 7, time: 1234, verse: 255 };
     expect(resumeTrack(arabic, 2, 286)).toBe(254);
     expect(resumeStartSeconds(arabic, 2, 9001, [])).toBe(0);
+  });
+
+  it('reads the English translation after each verse of an Arabic recitation', () => {
+    const timings = [
+      { verse: 1, from: 0, to: 6000 },
+      { verse: 2, from: 6000, to: 11000 },
+      { verse: 3, from: 11000, to: 16000 }
+    ];
+    expect(verseToTranslate(timings, 5900, -1)).toBeNull(); // verse 1 still recited
+    expect(verseToTranslate(timings, 6000, -1)).toBe(0); // verse 1 over: its English
+    expect(verseToTranslate(timings, 6050, 0)).toBeNull(); // already read: on with verse 2
+    expect(verseToTranslate(timings, 11020, 0)).toBe(1);
+    expect(verseToTranslate(timings, 16000, 2)).toBeNull(); // all read
+    expect(englishVerseUrl(2, 255)).toBe('https://cdn.islamic.network/quran/audio/192/en.walk/262.mp3');
+  });
+
+  it('offers the English after each verse only for reciters with verse timings', () => {
+    expect(canAddEnglish(7)).toBe(true); // Alafasy (Quran.com)
+    expect(canAddEnglish(3)).toBe(true); // Sudais
+    expect(canAddEnglish(2919)).toBe(false); // al-Faqih: no timings
+    expect(canAddEnglish(9001)).toBe(false); // already English
+    expect(canAddEnglish(9002)).toBe(false);
+  });
+
+  it('keeps the English after each verse off until it is turned on', () => {
+    localStorage.removeItem('daily_hadith_tv_quran');
+    expect(getQuranSettings().englishAfterVerse).toBe(false);
+    saveQuranSettings({ ...getQuranSettings(), englishAfterVerse: true });
+    expect(getQuranSettings().englishAfterVerse).toBe(true);
+    localStorage.removeItem('daily_hadith_tv_quran');
   });
 
   it('formats a place in the recitation', () => {

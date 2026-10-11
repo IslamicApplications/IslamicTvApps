@@ -69,6 +69,15 @@ export function hasVerseTimings(reciter: number): boolean {
   return !r?.quranCentral && (!r?.islamicNetwork || !!r.verseByVerse);
 }
 
+/**
+ * The English translation can follow each verse: an Arabic reciter from Quran.com, whose
+ * verse timings show where each verse ends (not Quran Central's or the English ones).
+ */
+export function canAddEnglish(reciter: number): boolean {
+  const r = RECITERS.find((r) => r.id === reciter);
+  return !!r && !r.quranCentral && !r.islamicNetwork;
+}
+
 /** The reciter reads in English (its translation is shown whatever the Hadith language). */
 export function isEnglishReciter(reciter: number): boolean {
   return !!RECITERS.find((r) => r.id === reciter)?.english;
@@ -81,19 +90,22 @@ export interface QuranSettings {
   surah: number;
   /** Go on to the next surah when one ends */
   continuous: boolean;
+  /** After each Arabic verse, its English translation read by Ibrahim Walk */
+  englishAfterVerse: boolean;
 }
 
 const SETTINGS_KEY = 'daily_hadith_tv_quran';
 
 export function getQuranSettings(): QuranSettings {
-  const fallback: QuranSettings = { reciter: RECITERS[0].id, surah: 1, continuous: true };
+  const fallback: QuranSettings = { reciter: RECITERS[0].id, surah: 1, continuous: true, englishAfterVerse: false };
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
     if (!saved) return fallback;
     return {
       reciter: RECITERS.some((r) => r.id === saved.reciter) ? saved.reciter : fallback.reciter,
       surah: saved.surah >= 1 && saved.surah <= 114 ? saved.surah : 1,
-      continuous: saved.continuous !== false
+      continuous: saved.continuous !== false,
+      englishAfterVerse: saved.englishAfterVerse === true
     };
   } catch {
     return fallback;
@@ -187,6 +199,25 @@ export function firstVerseNumber(surah: number): number {
   return SURAHS.slice(0, surah - 1).reduce((n, s) => n + s.verses, 0) + 1;
 }
 
+/** One verse's file in a verse-by-verse edition on cdn.islamic.network (numbered through the whole Quran). */
+export function verseAudioUrl(edition: string, surah: number, verse: number): string {
+  return `https://cdn.islamic.network/quran/audio/192/${edition}/${firstVerseNumber(surah) + verse - 1}.mp3`;
+}
+
+/** The English translation of one verse, read by Ibrahim Walk (Saheeh International). */
+export function englishVerseUrl(surah: number, verse: number): string {
+  return verseAudioUrl('en.walk', surah, verse);
+}
+
+/**
+ * With the English after each verse: the verse (index) whose Arabic has just ended at `ms`
+ * and whose English is still to be read, or null. `done` is the last verse index read in English.
+ */
+export function verseToTranslate(timings: VerseTiming[], ms: number, done: number): number | null {
+  const next = done + 1;
+  return next < timings.length && ms >= timings[next].to ? next : null;
+}
+
 /** Audio file and verse timings for one surah by one reciter. */
 export function loadRecitation(reciter: number, surah: number): Promise<Recitation> {
   const r = RECITERS.find((r) => r.id === reciter);
@@ -194,9 +225,7 @@ export function loadRecitation(reciter: number, surah: number): Promise<Recitati
     return Promise.resolve({ url: `https://podcasts.qurancentral.com/${r.quranCentral}/${String(surah).padStart(3, '0')}.mp3`, timings: [] });
   }
   if (r?.islamicNetwork && r.verseByVerse) {
-    // Files are numbered through the whole Quran
-    const first = firstVerseNumber(surah);
-    const tracks = Array.from({ length: SURAHS[surah - 1].verses }, (_, i) => `https://cdn.islamic.network/quran/audio/192/${r.islamicNetwork}/${first + i}.mp3`);
+    const tracks = Array.from({ length: SURAHS[surah - 1].verses }, (_, i) => verseAudioUrl(r.islamicNetwork!, surah, i + 1));
     return Promise.resolve({ url: tracks[0], timings: [], tracks });
   }
   if (r?.islamicNetwork) {
