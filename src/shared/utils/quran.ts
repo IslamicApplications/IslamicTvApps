@@ -3,9 +3,11 @@
  * (https://api-docs.quran.foundation). Audio is streamed from quranicaudio.com;
  * the verse timings let the screen show the verse being recited. A few reciters
  * stream from Quran Central (qurancentral.com) instead, without verse timings, and the
- * English translations from the Islamic Network's CDN (the files api.alquran.cloud lists).
+ * English translations from the Islamic Network's CDN (the files api.alquran.cloud lists),
+ * and the Oromo translation from the Internet Archive.
  */
 import surahsData from '../data/surahs.json';
+import oromoFiles from '../data/oromoQuran.json';
 
 const API = 'https://api.quran.com/api/v4';
 
@@ -55,6 +57,11 @@ export interface Reciter {
   verseByVerse?: boolean;
   /** Read in English, so its translation shows whatever the Hadith language */
   english?: boolean;
+  /**
+   * Translation on the Internet Archive: the item's id and its files, one per surah in order
+   * (their names follow no one pattern). Streamed surah by surah, without verse timings.
+   */
+  archive?: { item: string; files: string[] };
 }
 
 export const RECITERS: Reciter[] = [
@@ -75,13 +82,20 @@ export const RECITERS: Reciter[] = [
   { id: 9001, name: 'English: Ibrahim Walk (Saheeh International)', nameAr: 'ترجمة إنجليزية: إبراهيم ووك (صحيح إنترناشونال)', islamicNetwork: 'en.walk', verseByVerse: true, english: true },
   { id: 9002, name: 'Alafasy + English (Saheeh International)', nameAr: 'العفاسي + ترجمة إنجليزية (صحيح إنترناشونال)', islamicNetwork: 'en.misharyrashidalafasyenglishtranslationsaheehibrahimwalk', english: true },
   { id: 9003, name: 'Muhammad Ayyub + English (Muhsin Khan)', nameAr: 'محمد أيوب + ترجمة إنجليزية (محسن خان)', islamicNetwork: 'en.muhammadayyubenglishtranslationmuhsinkhanmikaalwaters', english: true },
-  { id: 9004, name: 'Sudais & Shuraym + English (Pickthall)', nameAr: 'السديس والشريم + ترجمة إنجليزية (بكثال)', islamicNetwork: 'en.sudaisandshuraymenglishtranslationpickthallaslamathar', english: true }
+  { id: 9004, name: 'Sudais & Shuraym + English (Pickthall)', nameAr: 'السديس والشريم + ترجمة إنجليزية (بكثال)', islamicNetwork: 'en.sudaisandshuraymenglishtranslationpickthallaslamathar', english: true },
+  // Other languages
+  {
+    id: 9101,
+    name: 'Oromo translation (Afaan Oromoo)',
+    nameAr: 'ترجمة بلغة الأورومو',
+    archive: { item: 'Translation_of_the_Noble_Quran_in_the_Oromo_Language-HQ-Audio-MP3', files: oromoFiles as string[] }
+  }
 ];
 
 /** False for reciters whose recitations have no verse timings (the verse can't be followed). */
 export function hasVerseTimings(reciter: number): boolean {
   const r = RECITERS.find((r) => r.id === reciter);
-  return !r?.quranCentral && !r?.timingsOff && (!r?.islamicNetwork || !!r.verseByVerse);
+  return !r?.quranCentral && !r?.archive && !r?.timingsOff && (!r?.islamicNetwork || !!r.verseByVerse);
 }
 
 /**
@@ -90,7 +104,7 @@ export function hasVerseTimings(reciter: number): boolean {
  */
 export function canAddEnglish(reciter: number): boolean {
   const r = RECITERS.find((r) => r.id === reciter);
-  return !!r && !r.quranCentral && !r.islamicNetwork && !r.timingsOff && !r.roughTimings;
+  return !!r && !r.quranCentral && !r.islamicNetwork && !r.archive && !r.timingsOff && !r.roughTimings;
 }
 
 /** Ibrahim Walk's English (LUFS); a browser can't make audio louder, so a louder reciter is turned down */
@@ -264,6 +278,9 @@ export function loadRecitation(reciter: number, surah: number): Promise<Recitati
   const r = RECITERS.find((r) => r.id === reciter);
   if (r?.quranCentral) {
     return Promise.resolve({ url: `https://podcasts.qurancentral.com/${r.quranCentral}/${String(surah).padStart(3, '0')}.mp3`, timings: [] });
+  }
+  if (r?.archive) {
+    return Promise.resolve({ url: `https://archive.org/download/${r.archive.item}/${encodeURIComponent(r.archive.files[surah - 1])}`, timings: [] });
   }
   if (r?.islamicNetwork && r.verseByVerse) {
     const tracks = Array.from({ length: SURAHS[surah - 1].verses }, (_, i) => verseAudioUrl(r.islamicNetwork!, surah, i + 1));
