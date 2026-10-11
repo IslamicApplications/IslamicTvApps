@@ -58,7 +58,7 @@ import { IslamicPattern, IslamicCornerOrnament } from './IslamicPattern';
 import { RamadanAccent } from './RamadanAccent';
 import { useReloadOnUpdate } from '../hooks/useReloadOnUpdate';
 import { IN_ANDROID_APP } from '../utils/androidApp';
-import { handleBack } from '../hooks/useBackHandler';
+import { handleBack, isBackKey } from '../hooks/useBackHandler';
 import { THEMES, nextTheme, useAppTheme } from '../theme';
 import { AppLogo } from './AppLogo';
 import {
@@ -408,7 +408,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
         cycleBrightness();
       } else if (e.key === 't' || e.key === 'T') {
         cycleTheme();
-      } else if (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') {
+      } else if (isBackKey(e)) {
         // The Azan popup (over everything) first
         if (handleBack()) {
           e.preventDefault();
@@ -1164,7 +1164,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
                         role="dialog"
                         aria-label={t("Du'a after Azan")}
                         onKeyDown={(e) => {
-                          if (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') {
+                          if (isBackKey(e)) {
                             e.preventDefault();
                             e.nativeEvent.stopPropagation();
                             closeDuaMenu();
