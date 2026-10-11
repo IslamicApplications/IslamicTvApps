@@ -67,10 +67,12 @@ interface PrayerPhaseOverlayProps {
   phase: PrayerPhase;
   i18n: I18n;
   onDismiss: () => void;
+  /** On a phone (zoomed to its width): digits that fit, and "Tap to hide" */
+  phone?: boolean;
 }
 
 /** Full-screen TV overlay for the Iqamah countdown and the prayer itself. Any key or tap hides it. */
-export const PrayerPhaseOverlay: React.FC<PrayerPhaseOverlayProps> = ({ phase, i18n, onDismiss }) => {
+export const PrayerPhaseOverlay: React.FC<PrayerPhaseOverlayProps> = ({ phase, i18n, onDismiss, phone }) => {
   const { t } = i18n;
 
   // The remote's Back in the Android app (it never arrives as a key) hides it too
@@ -113,11 +115,11 @@ export const PrayerPhaseOverlay: React.FC<PrayerPhaseOverlayProps> = ({ phase, i
     >
       <div className="font-serif text-[72px] font-bold text-amber-300">{t('{prayer} Prayer', { prayer: i18n.prayer(phase.prayer) })}</div>
       <div className="text-[44px] text-neutral-300">{t('Iqamah in')}</div>
-      <div dir="ltr" className={`font-mono font-extrabold leading-none ${lastMinute ? 'text-emerald-300 animate-pulse' : 'text-white'} text-[260px]`}>
+      <div dir="ltr" className={`font-mono font-extrabold leading-none ${lastMinute ? 'text-emerald-300 animate-pulse' : 'text-white'} ${phone ? 'text-[190px]' : 'text-[260px]'}`}>
         {minutes}:{seconds}
       </div>
       <div className="text-[36px] text-neutral-300">{t(lastMinute ? 'Please straighten the rows' : 'Please silence your phone')}</div>
-      <div className="text-[22px] text-neutral-500">{t('Press any key to hide')}</div>
+      <div className="text-[22px] text-neutral-500">{t(phone ? 'Tap to hide' : 'Press any key to hide')}</div>
     </div>
   );
 };

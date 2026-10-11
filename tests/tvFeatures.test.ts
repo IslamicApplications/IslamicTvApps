@@ -7,7 +7,7 @@ import { getQuranPosition, resumeStartSeconds, saveQuranPosition } from '../src/
 import { importSettingsFromHash } from '../src/tv/importSettings';
 import { confirmLeave, isBackKey } from '../src/shared/hooks/useBackHandler';
 import { directionScore, keyDirection, type Rect } from '../src/tv/useSpatialNavigation';
-import { isPhoneScreen } from '../src/tv/PhoneNote';
+import { isPhoneScreen, phoneMenuZoom } from '../src/tv/phone';
 
 const amssa = INITIAL_MOSQUES.find((m) => m.id === 'amssa')!;
 // Saturday 3 October 2026 at AMSSA: Maghrib Adhan 6:29 pm, Iqamah 6:34 pm
@@ -232,13 +232,18 @@ describe('Remote control navigation', () => {
   });
 });
 
-describe('Note for phones', () => {
-  it('shows on a phone, not on a TV, tablet or computer', () => {
+describe('Phone layout', () => {
+  it('is used on a phone, not on a TV, tablet or computer', () => {
     expect(isPhoneScreen(393, 852, true)).toBe(true); // iPhone, portrait
     expect(isPhoneScreen(852, 393, true)).toBe(true); // and landscape
     expect(isPhoneScreen(960, 540, false)).toBe(false); // TV (no touch screen)
     expect(isPhoneScreen(1920, 1080, false)).toBe(false);
     expect(isPhoneScreen(820, 1180, true)).toBe(false); // iPad
     expect(isPhoneScreen(400, 800, false)).toBe(false); // a narrow desktop window
+  });
+
+  it('zooms the TV-sized menus to the phone, never beyond their own size', () => {
+    expect(phoneMenuZoom(393)).toBeCloseTo(0.546);
+    expect(phoneMenuZoom(852)).toBe(1); // a phone held sideways: no need to shrink
   });
 });

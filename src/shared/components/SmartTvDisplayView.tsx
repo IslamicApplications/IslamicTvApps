@@ -97,6 +97,11 @@ const MUEZZIN_IDS = Object.keys(MUEZZIN_SOURCES) as MuezzinId[];
 
 interface SmartTvDisplayViewProps {
   onClose?: () => void;
+  /**
+   * On a phone: the phone layout, with the menus and overlays (drawn for the TV canvas)
+   * laid out 720px wide and zoomed by this to the screen (src/tv/phone.ts).
+   */
+  phoneMenuZoom?: number;
 }
 
 // Offline fallback when the sunnah.com library can't be downloaded
@@ -133,7 +138,8 @@ async function pickRandomHadith(topic: string | null): Promise<Hadith> {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose }) => {
+export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose, phoneMenuZoom }) => {
+  const phone = phoneMenuZoom !== undefined;
   const i18n = useI18n();
   const { t } = i18n;
   const [selectedMosque, setSelectedMosque] = useState<Mosque>(getSelectedMosque());
@@ -369,7 +375,8 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
   // Next Hadith after the chosen time; restarts whenever the Hadith changes, so one
   // picked with Ch +/− also stays up for the full time
   useEffect(() => {
-    if (!slideSeconds || !activeHadith || quran.active) return;
+    // Not on a phone: the Hadith would change while it's being read
+    if (!slideSeconds || !activeHadith || quran.active || phone) return;
     const hadithTimer = setTimeout(showNextHadith, slideSeconds * 1000);
     return () => clearTimeout(hadithTimer);
   }, [slideSeconds, activeHadith, quran.active]);
@@ -665,6 +672,532 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
     ? ['شمال', 'شمال شرق', 'شرق', 'جنوب شرق', 'جنوب', 'جنوب غرب', 'غرب', 'شمال غرب']
     : ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
   const qiblaDirection = compassPoints[Math.round(prayerData.qiblaBearing / 45) % 8];
+
+  // Menus and full-screen overlays, the same in the TV and phone layouts
+  const overlays = (
+    <>
+      {/* Azan Voices (remote-friendly): default voice + one per prayer */}
+      {openDialog === 'azan' && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center px-[96px] py-[54px] bg-black/85 backdrop-blur-md">
+          <div className="w-full max-w-[1300px] max-h-full flex flex-col rounded-[36px] bg-[var(--tv-dialog)] border border-amber-500/30 p-10 shadow-2xl">
+            <div className="flex items-center justify-between pb-5 mb-3 border-b border-white/10">
+              <div>
+                <h3 className="font-serif text-[48px] leading-tight font-bold text-white">{t('Azan Voices')}</h3>
+                <p className="text-[22px] text-neutral-400">{t('Press OK on Change to pick a voice for each prayer')}</p>
+              </div>
+              <button
+                onClick={closeDialog}
+                className="p-4 rounded-2xl bg-white/10 hover:bg-white/20 text-neutral-200 cursor-pointer"
+                title={t('Close')}
+              >
+                <X className="w-8 h-8" />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2 overflow-y-auto p-2">
+              {[{ key: 'default', label: t('Default (all prayers)') }, ...AZAN_PRAYERS.map((p) => ({ key: p, label: i18n.prayer(p) }))].map((row, index) => {
+                const isDefaultRow = row.key === 'default';
+                const own = isDefaultRow ? null : azanSettings.prayerMuezzins?.[row.key as AzanPrayer];
+                const effective = isDefaultRow ? azanSettings.selectedMuezzin : getMuezzinForPrayer(azanSettings, row.key);
+                const isPreviewing = previewingRow === row.key;
+                return (
+                  <div
+                    key={row.key}
+                    className={`azan-row flex items-center gap-6 px-7 py-2.5 rounded-3xl border ${
+                      isDefaultRow ? 'bg-amber-500/10 border-amber-500/30' : 'bg-white/5 border-white/10'
+                    }`}
+                  >
+                    <div className="azan-label w-[300px] shrink-0 text-[28px] font-bold text-white">{row.label}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[26px] font-semibold text-amber-200 truncate">
+                        {t(MUEZZIN_SOURCES[effective].name)}
+                      </div>
+                      <div className="text-[20px] text-neutral-400">
+                        {isDefaultRow ? t('Used by every prayer set to Default') : own ? t(MUEZZIN_SOURCES[own].location) : t('Default')}
+                      </div>
+                    </div>
+                    <button
+                      ref={index === 0 ? azanDialogFirstButtonRef : undefined}
+                      onClick={() => (isDefaultRow ? cycleDefaultMuezzin() : cyclePrayerMuezzin(row.key as AzanPrayer))}
+                      className="px-7 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-[22px] font-bold text-white cursor-pointer"
+                      title={t('Change {name} voice', { name: row.label })}
+                    >
+                      {t('Change')}
+                    </button>
+                    {!isDefaultRow && iqamahOn && (
+                      <button
+                        onClick={() => toggleIqamahFor(row.key as AzanPrayer)}
+                        aria-pressed={iqamahFor(row.key as AzanPrayer)}
+                        className={`min-w-[170px] px-5 py-3 rounded-2xl text-[20px] font-bold text-center whitespace-nowrap cursor-pointer ${
+                          iqamahFor(row.key as AzanPrayer) ? 'bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30' : 'bg-white/5 text-neutral-500 hover:bg-white/15'
+                        }`}
+                        title={t('Turn the {prayer} Iqamah on or off', { prayer: row.label })}
+                      >
+                        {t(iqamahFor(row.key as AzanPrayer) ? 'Iqamah on' : 'Iqamah off')}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => togglePreview(row.key, effective)}
+                      className={`p-4 rounded-2xl cursor-pointer ${isPreviewing ? 'bg-rose-500 text-white' : 'bg-amber-500 text-neutral-950'}`}
+                      title={t(isPreviewing ? 'Stop {name} preview' : 'Listen to {name} voice', { name: row.label })}
+                    >
+                      {isPreviewing ? <Square className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current" />}
+                    </button>
+                  </div>
+                );
+              })}
+              {/* The Iqamah, played when the Iqamah countdown ends */}
+              <div className="azan-row flex items-center gap-6 px-7 py-2.5 rounded-3xl border bg-emerald-500/10 border-emerald-500/30">
+                <div className="azan-label w-[300px] shrink-0 text-[28px] font-bold text-white">{t('Iqamah')}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[26px] font-semibold text-amber-200 truncate">{t(IQAMAH_SOURCE.name)}</div>
+                  <div className="text-[20px] text-neutral-400">{t(iqamahOn ? 'Plays when the Iqamah countdown ends' : 'Off')}</div>
+                </div>
+                <button
+                  onClick={() => updateAzanSettings({ ...azanSettings, iqamahSound: !iqamahOn })}
+                  aria-pressed={iqamahOn}
+                  className={`px-7 py-3 rounded-2xl text-[22px] font-bold cursor-pointer ${
+                    iqamahOn ? 'bg-emerald-500/25 text-emerald-200 hover:bg-emerald-500/35' : 'bg-white/10 text-neutral-300 hover:bg-white/20'
+                  }`}
+                  title={t('Turn the Iqamah on or off')}
+                >
+                  {t(iqamahOn ? 'On' : 'Off')}
+                </button>
+                <button
+                  onClick={() => togglePreview('iqamah', 'iqamah')}
+                  className={`p-4 rounded-2xl cursor-pointer ${previewingRow === 'iqamah' ? 'bg-rose-500 text-white' : 'bg-amber-500 text-neutral-950'}`}
+                  title={t(previewingRow === 'iqamah' ? 'Stop the Iqamah preview' : 'Listen to the Iqamah')}
+                >
+                  {previewingRow === 'iqamah' ? <Square className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current" />}
+                </button>
+              </div>
+              {/* The Du'a after the Azan: which recitation (shown once there is more than one) */}
+              {DUA_IDS.length > 1 && (
+                <div className="azan-row flex items-center gap-6 px-7 py-2.5 rounded-3xl border bg-white/5 border-white/10">
+                  <div className="azan-label w-[300px] shrink-0 text-[28px] font-bold text-white">{t("Du'a after Azan")}</div>
+                  <div className="relative flex-1 min-w-0">
+                    <button
+                      ref={duaButtonRef}
+                      onClick={() => (duaMenuOpen ? closeDuaMenu() : openDuaMenu())}
+                      aria-haspopup="listbox"
+                      aria-expanded={duaMenuOpen}
+                      className="w-full flex items-center gap-4 px-6 py-2 rounded-2xl bg-white/10 hover:bg-white/20 text-start cursor-pointer"
+                      title={t("Change the Du'a recitation")}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[26px] font-semibold text-amber-200 truncate">{t(DUA_SOURCES[getDuaForSettings(azanSettings)].name)}</div>
+                        <div className="text-[20px] text-neutral-400 truncate">{t(DUA_SOURCES[getDuaForSettings(azanSettings)].location)}</div>
+                      </div>
+                      <ChevronDown className={`w-8 h-8 shrink-0 text-neutral-300 transition-transform ${duaMenuOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {/* Its own dialog so the remote's arrows stay in the list; Back closes just the list */}
+                    {duaMenuOpen && (
+                      <div
+                        ref={duaMenuRef}
+                        role="dialog"
+                        aria-label={t("Du'a after Azan")}
+                        onKeyDown={(e) => {
+                          if (isBackKey(e)) {
+                            e.preventDefault();
+                            e.nativeEvent.stopPropagation();
+                            closeDuaMenu();
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Focus left the list (e.g. a click elsewhere); the toggle button handles itself
+                          const to = e.relatedTarget as Node | null;
+                          if (duaMenuOpenRef.current && !e.currentTarget.contains(to) && to !== duaButtonRef.current) closeDuaMenu();
+                        }}
+                        className="absolute bottom-full inset-x-0 mb-2 z-10 flex flex-col gap-1 p-2 rounded-2xl bg-[var(--tv-dialog)] border border-amber-500/40 shadow-2xl"
+                      >
+                        <div role="listbox" className="flex flex-col gap-1">
+                          {DUA_IDS.map((id) => {
+                            const chosen = id === getDuaForSettings(azanSettings);
+                            return (
+                              <button
+                                key={id}
+                                ref={chosen ? duaChosenOptionRef : undefined}
+                                role="option"
+                                aria-selected={chosen}
+                                onClick={() => chooseDua(id)}
+                                className={`flex items-center gap-4 px-5 py-2.5 rounded-xl text-start cursor-pointer ${
+                                  chosen ? 'bg-amber-500/20' : 'hover:bg-white/10 focus:bg-white/10'
+                                }`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[24px] font-semibold text-white truncate">{t(DUA_SOURCES[id].name)}</div>
+                                  <div className="text-[18px] text-neutral-400 truncate">{t(DUA_SOURCES[id].location)}</div>
+                                </div>
+                                {chosen && <Check className="w-7 h-7 shrink-0 text-amber-300" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => updateAzanSettings({ ...azanSettings, duaAfterAzan: !duaOn })}
+                    aria-pressed={duaOn}
+                    className={`px-7 py-3 rounded-2xl text-[22px] font-bold cursor-pointer ${
+                      duaOn ? 'bg-emerald-500/25 text-emerald-200 hover:bg-emerald-500/35' : 'bg-white/10 text-neutral-300 hover:bg-white/20'
+                    }`}
+                    title={t("Turn the Du'a after the Azan on or off")}
+                  >
+                    {t(duaOn ? 'On' : 'Off')}
+                  </button>
+                  <button
+                    onClick={() => togglePreview('dua', 'dua')}
+                    className={`p-4 rounded-2xl cursor-pointer ${previewingRow === 'dua' ? 'bg-rose-500 text-white' : 'bg-amber-500 text-neutral-950'}`}
+                    title={t(previewingRow === 'dua' ? "Stop the Du'a preview" : "Listen to the Du'a")}
+                  >
+                    {previewingRow === 'dua' ? <Square className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current" />}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Language: the screen and the Hadith text separately */}
+      {openDialog === 'language' && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center px-[96px] py-[54px] bg-black/85 backdrop-blur-md">
+          <div className="w-full max-w-[1100px] max-h-full flex flex-col rounded-[36px] bg-[var(--tv-dialog)] border border-amber-500/30 p-10 shadow-2xl">
+            <div className="flex items-center justify-between pb-6 mb-6 border-b border-white/10">
+              <div>
+                <h3 className="font-serif text-[48px] leading-tight font-bold text-white">{t('Language')}</h3>
+                <p className="text-[22px] text-neutral-400">{t('Choose what is shown in Arabic')}</p>
+              </div>
+              <button onClick={closeDialog} className="p-4 rounded-2xl bg-white/10 hover:bg-white/20 text-neutral-200 cursor-pointer" title={t('Close')}>
+                <X className="w-8 h-8" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-6">
+              {(
+                [
+                  { label: t('Screen (menus, prayer times, dates)'), value: uiLanguage, set: setUiLanguage },
+                  { label: t('Hadith text'), value: hadithLanguage, set: setHadithLanguage }
+                ] as { label: string; value: HadithLanguage; set: (l: HadithLanguage) => void }[]
+              ).map((row, rowIndex) => (
+                <div key={rowIndex} className="flex items-center justify-between gap-6 px-7 py-5 rounded-3xl bg-white/5 border border-white/10">
+                  <span className="text-[28px] font-semibold text-white">{row.label}</span>
+                  <div className="flex gap-3">
+                    {(['en', 'ar'] as const).map((lang, i) => (
+                      <button
+                        key={lang}
+                        ref={rowIndex === 0 && i === 0 ? languageFirstButtonRef : undefined}
+                        onClick={() => row.set(lang)}
+                        aria-pressed={row.value === lang}
+                        className={`px-8 py-4 rounded-2xl text-[26px] font-bold cursor-pointer ${lang === 'ar' ? 'font-arabic' : ''} ${
+                          row.value === lang ? 'bg-amber-500 text-neutral-950' : 'bg-white/10 hover:bg-white/20 text-white'
+                        }`}
+                      >
+                        {lang === 'ar' ? 'العربية' : 'English'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hadith topic for the slides */}
+      {openDialog === 'topic' && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center px-[96px] py-[54px] bg-black/85 backdrop-blur-md">
+          <div className="w-full max-w-[1300px] max-h-full flex flex-col rounded-[36px] bg-[var(--tv-dialog)] border border-amber-500/30 p-10 shadow-2xl">
+            <div className="flex items-center justify-between pb-6 mb-6 border-b border-white/10">
+              <div>
+                <h3 className="font-serif text-[48px] leading-tight font-bold text-white">{t('Hadith topic for the slides')}</h3>
+                <p className="text-[22px] text-neutral-400">{t('Topics are found by keyword, so a few Hadiths may only mention the topic.')}</p>
+              </div>
+              <button onClick={closeDialog} className="p-4 rounded-2xl bg-white/10 hover:bg-white/20 text-neutral-200 cursor-pointer" title={t('Close')}>
+                <X className="w-8 h-8" />
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-4 overflow-y-auto p-2">
+              {[null, ...topics.map((x) => x.id)].map((id) => {
+                const item = topics.find((x) => x.id === id);
+                const selected = id === topic;
+                return (
+                  <button
+                    key={id ?? 'all'}
+                    ref={selected ? topicButtonRef : undefined}
+                    onClick={() => {
+                      setTopic(id);
+                      saveTvTopic(id);
+                      closeDialog();
+                      if (id) {
+                        pickRandomHadith(id).then((h) => showHadith(h, false));
+                      }
+                    }}
+                    className={`px-6 py-5 rounded-3xl border text-[26px] font-semibold text-start cursor-pointer ${
+                      selected ? 'bg-amber-500/20 border-amber-400 text-white' : 'bg-white/5 border-white/10 text-neutral-200 hover:bg-white/10'
+                    }`}
+                  >
+                    {item ? (i18n.isArabic ? item.nameAr : item.name) : t('All topics')}
+                    {item && <div className="text-[18px] text-neutral-400 mt-1">{t('{n} Hadiths', { n: item.positions.length })}</div>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mosque Picker (remote-friendly) */}
+      {isMosquePickerOpen && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center px-[96px] py-[54px] bg-black/85 backdrop-blur-md">
+          <div className="w-full max-w-[1500px] max-h-full flex flex-col rounded-[36px] bg-[var(--tv-dialog)] border border-amber-500/30 p-10 shadow-2xl">
+            <div className="flex items-center justify-between pb-6 mb-6 border-b border-white/10">
+              <div className="space-y-3">
+                <h3 className="font-serif text-[48px] font-bold text-white">{t('Choose Your Mosque')}</h3>
+                <HijriAdjust size="tv" />
+              </div>
+              <button
+                onClick={closeDialog}
+                className="p-4 rounded-2xl bg-white/10 hover:bg-white/20 text-neutral-200 cursor-pointer"
+                title={t('Close')}
+              >
+                <X className="w-8 h-8" />
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-4 overflow-y-auto pr-2 p-2">
+              {mosquesByState.map((m) => {
+                const isSelected = m.id === selectedMosque.id;
+                return (
+                  <button
+                    key={m.id}
+                    ref={isSelected ? selectedMosqueButtonRef : undefined}
+                    onClick={() => handleSelectMosque(m)}
+                    className={`text-start px-6 py-5 rounded-3xl border transition cursor-pointer ${
+                      isSelected
+                        ? 'bg-amber-500/20 border-amber-400 text-white'
+                        : 'bg-white/5 border-white/10 text-neutral-200 hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="font-semibold text-[24px] leading-snug">{m.name}</div>
+                    <div className="text-[20px] text-neutral-400 mt-1">{m.suburb}, {m.state}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {openDialog === 'quran' && <QuranDialog player={quran} i18n={i18n} onClose={closeDialog} onPlay={closeQuranDialogAndPlay} onStop={stopQuranFromDialog} phone={phone} />}
+
+      {/* Iqamah countdown after the Adhan, then "prayer in progress" (Friday Dhuhr is Jumu'ah) */}
+      {(() => {
+        const phase = prayerPhase;
+        return phase && phase.key !== dismissedPhase && !openDialog ? (
+          <PrayerPhaseOverlay phase={phase} i18n={i18n} onDismiss={() => setDismissedPhase(phase.key)} phone={phone} />
+        ) : null;
+      })()}
+
+      {/* Brightness: dims everything, dialogs included, without blocking the remote */}
+      {effectiveBrightness < 100 && (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-[9999] bg-black pointer-events-none transition-opacity duration-300"
+          style={{ opacity: (100 - effectiveBrightness) / 100 }}
+        />
+      )}
+    </>
+  );
+
+  /**
+   * Phone layout: one column read top to bottom (mosque and clock, next prayer, the day's
+   * times, then the Hadith or the Quran) with the controls in a bar at the bottom. Same
+   * state and settings as the TV screen; the menus are the TV's, zoomed (phoneMenuZoom).
+   */
+  function renderPhone() {
+    const nextIsJumuah = prayerData.isFriday && prayerData.nextPrayer.name === 'Dhuhr';
+    const currentTopic = topics.find((x) => x.id === topic);
+    const hadithText = shownHadith
+      ? shownHadith.isArabic || /^\s*["“‘']/.test(shownHadith.text)
+        ? shownHadith.text
+        : <>&ldquo;{shownHadith.text}&rdquo;</>
+      : t('Loading the Hadith of the Day…');
+    const barButton = 'flex flex-col items-center justify-center gap-1 py-2 min-h-[56px] text-[11px] font-semibold text-neutral-300 active:bg-white/10 cursor-pointer';
+    return (
+      <div
+        className="phone-view fixed inset-0 z-50 app-bg text-white flex flex-col transition-colors duration-700"
+        style={{ ['--phone-menu-zoom' as string]: phoneMenuZoom }}
+      >
+        <IslamicPattern opacity={10} />
+
+        <div className="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4 space-y-3">
+          {/* Mosque (tap to change) | clock */}
+          <header className="flex items-start justify-between gap-3">
+            <button onClick={() => openDialogOf('mosque')} className="min-w-0 flex items-start gap-2.5 text-start cursor-pointer" title={t('Choose Mosque')}>
+              <AppLogo size={40} glow={false} />
+              <span className="min-w-0">
+                <span className="block font-semibold text-amber-200 leading-snug line-clamp-2">{selectedMosque.name}</span>
+                <span className="flex items-center gap-1 text-xs text-neutral-400">
+                  <MapPin className="w-3 h-3 shrink-0" />
+                  {selectedMosque.suburb}, {selectedMosque.state}
+                </span>
+              </span>
+            </button>
+            <div dir="ltr" className="shrink-0 font-mono font-extrabold leading-none flex items-baseline gap-1">
+              {i18n.isArabic && <span className="text-sm text-neutral-300">{i18n.time(currentPeriod).trim()}</span>}
+              <span className="text-3xl">{currentTimeStr}</span>
+              <span className="text-sm text-amber-400">:{currentSecondsStr}</span>
+              {!i18n.isArabic && <span className="text-sm text-neutral-300">{currentPeriod}</span>}
+            </div>
+          </header>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="font-arabic text-amber-300 font-semibold">{i18n.hijri(currentHijriStr)}</span>
+            <span className="text-neutral-400 text-end">{i18n.date(mosqueDay(prayerData), { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+          </div>
+
+          {/* Next prayer */}
+          <section className="relative overflow-hidden rounded-3xl px-5 py-4 bg-gradient-to-r from-amber-600/30 via-[var(--tv-hero-mid)] to-[var(--tv-hero-end)] border border-amber-500/40 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[11px] uppercase tracking-widest text-amber-300 font-bold">{t('Next Prayer')}</div>
+              <div className="font-serif text-3xl font-extrabold leading-tight">{i18n.prayer(nextIsJumuah ? "Jumu'ah" : prayerData.nextPrayer.name)}</div>
+              <div className="text-xs font-mono text-neutral-300 flex flex-wrap gap-x-3">
+                <span>{t('Adhan')} <span className="text-amber-300 font-bold">{i18n.time(prayerData.nextPrayer.time)}</span></span>
+                {nextIsJumuah ? (
+                  <span className="text-emerald-400">{t("Jumu'ah")} {i18n.time(prayerData.jumuah)}</span>
+                ) : prayerData.nextPrayer.iqamaTime && (
+                  <span className="text-emerald-400">{t('Iqamah')} {i18n.time(prayerData.nextPrayer.iqamaTime)}</span>
+                )}
+              </div>
+            </div>
+            <div className="shrink-0 text-end">
+              <div className="text-[11px] uppercase tracking-widest text-neutral-400 font-semibold">{t('Remaining')}</div>
+              <div className="font-mono text-2xl font-extrabold text-amber-300">{i18n.duration(prayerData.nextPrayer.remainingFormatted)}</div>
+            </div>
+          </section>
+
+          {/* The day's prayer times */}
+          <section className="rounded-3xl bg-[var(--tv-card)] border border-white/10 divide-y divide-white/10 overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-1.5 text-[10px] uppercase tracking-wider text-neutral-500">
+              <span className="flex-1" />
+              <span>{t('Iqamah')}</span>
+              <span className="w-[5.5rem] text-end">{t('Adhan')}</span>
+            </div>
+            {prayerCards.map((p) => {
+              const isNext = prayerData.nextPrayer.name === p.name;
+              const isJumuah = prayerData.isFriday && p.name === 'Dhuhr';
+              return (
+                <div key={p.name} className={`flex items-center gap-3 px-4 py-2.5 ${isNext ? 'bg-amber-500/15' : ''}`}>
+                  <span className="text-lg leading-none w-6 text-center">{p.icon}</span>
+                  <span className={`flex-1 min-w-0 font-semibold ${isNext ? 'text-amber-200' : ''}`}>
+                    {i18n.prayer(isJumuah ? "Jumu'ah" : p.name)}
+                    {isNext && <span className="ms-2 text-[10px] px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-extrabold uppercase align-middle">{t('Next')}</span>}
+                  </span>
+                  <span className="text-xs text-neutral-400 font-mono">
+                    {isJumuah ? <span className="text-emerald-300">{i18n.time(prayerData.jumuah)}</span> : p.iqama ? <span className="text-emerald-300">{i18n.time(p.iqama)}</span> : null}
+                  </span>
+                  <span className="w-[5.5rem] text-end font-mono text-lg font-bold text-amber-300">{i18n.time(p.time)}</span>
+                </div>
+              );
+            })}
+            <div className="flex items-center justify-between gap-3 px-4 py-2.5 text-xs text-neutral-300">
+              <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-amber-400" />{t("Jumu'ah")} <strong className="text-white">{i18n.time(prayerData.jumuah)}</strong></span>
+              <span className="flex items-center gap-1.5"><Compass className="w-3.5 h-3.5 text-sky-400" />{t('Qibla')} <strong className="text-sky-300 font-mono">{prayerData.qiblaBearing}° {qiblaDirection}</strong></span>
+            </div>
+          </section>
+
+          {quran.active ? (
+            // The TV's Quran panel, zoomed like the menus (its verse text fits itself to this height)
+            <section className="phone-zoom-wide relative rounded-[32px] overflow-hidden border border-emerald-500/30" style={{ height: 800 }}>
+              <QuranNowPlaying player={quran} i18n={i18n} showTranslation={hadithLanguage === 'en'} onChoose={() => openDialogOf('quran')} />
+            </section>
+          ) : (
+            <section className="relative overflow-hidden rounded-3xl bg-[var(--tv-panel)] border border-amber-500/30 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[11px] font-bold uppercase tracking-wider truncate">
+                  <BookOpenText className="w-3.5 h-3.5 shrink-0" />
+                  {activeHadith ? i18n.collection(activeHadith.collection) : 'sunnah.com'}
+                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button onClick={() => openDialogOf('topic')} className="px-3 py-2 rounded-xl bg-white/10 active:bg-white/20 text-xs cursor-pointer max-w-[8rem] truncate" title={t('Hadith topic for the slides')}>
+                    {currentTopic ? (i18n.isArabic ? currentTopic.nameAr : currentTopic.name) : t('All topics')}
+                  </button>
+                  <button onClick={showPreviousHadith} title={t('Previous Hadith')} className="p-2 rounded-xl bg-white/10 active:bg-white/20 cursor-pointer">
+                    <ChevronLeft className="w-5 h-5 rtl:rotate-180" />
+                  </button>
+                  <button onClick={showNextHadith} title={t('Next Hadith')} className="p-2 rounded-xl bg-white/10 active:bg-white/20 cursor-pointer">
+                    <ChevronRight className="w-5 h-5 rtl:rotate-180" />
+                  </button>
+                </div>
+              </div>
+              {isDailyHadith && <div className="text-xs text-neutral-400">{t('Hadith of the Day')}</div>}
+              <div dir={shownHadith ? (shownHadith.isArabic ? 'rtl' : 'ltr') : undefined} lang={shownHadith ? (shownHadith.isArabic ? 'ar' : 'en') : undefined}>
+                {shownHadith?.narrator && <div className="font-serif font-bold text-amber-300 mb-2">{shownHadith.narrator}</div>}
+                <blockquote className={`${shownHadith?.isArabic ? 'font-arabic text-xl leading-loose' : 'font-serif text-lg leading-relaxed'} text-neutral-100`}>
+                  {hadithText}
+                </blockquote>
+              </div>
+              {activeHadith && (
+                <div className="pt-3 border-t border-white/10 text-xs text-neutral-300 font-mono flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <GradeBadge hadith={activeHadith} />
+                  <span className="text-amber-400 font-semibold">{describeHadith(activeHadith, i18n.language).reference}</span>
+                  <span className="text-neutral-500">•</span>
+                  <span>{describeHadith(activeHadith, i18n.language).detail}</span>
+                </div>
+              )}
+            </section>
+          )}
+
+          {prayerData.isRamadan && (
+            <section className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-emerald-950/50 border border-emerald-500/30 text-sm">
+              <Utensils className="w-4 h-4 text-emerald-400" />
+              {prayerData.ramadanDay && <span className="text-emerald-300 font-bold">{t('Ramadan {n}', { n: prayerData.ramadanDay })}</span>}
+              <span className="text-neutral-300">
+                {prayerData.nextFastingEvent.type === 'Iftar'
+                  ? t('Iftar {time}', { time: i18n.time(prayerData.maghrib) })
+                  : t('Suhoor ends {time}', { time: i18n.time(prayerData.nextFastingEvent.time) })}
+              </span>
+            </section>
+          )}
+        </div>
+
+        {/* Controls */}
+        <nav className="relative z-10 shrink-0 grid grid-cols-6 border-t border-white/10 bg-black/40 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+          <button onClick={() => openDialogOf('quran')} className={`${barButton} ${quran.active ? 'text-emerald-300' : ''}`}>
+            <BookOpen className="w-5 h-5" />
+            {t('Quran')}
+          </button>
+          <button onClick={() => openDialogOf('mosque')} className={barButton}>
+            <MapPin className="w-5 h-5" />
+            {t('Mosque')}
+          </button>
+          <button onClick={() => openDialogOf('azan')} className={barButton}>
+            <Music className="w-5 h-5" />
+            {t('Azan')}
+          </button>
+          <button onClick={() => openDialogOf('language')} className={barButton}>
+            <Languages className="w-5 h-5" />
+            {uiLanguage === 'ar' ? 'العربية' : 'English'}
+          </button>
+          <button onClick={cycleTheme} className={barButton}>
+            <Palette className="w-5 h-5" />
+            <span className="truncate max-w-full px-1">{themeLabel}</span>
+          </button>
+          <button
+            onClick={() => updateAzanSettings({ ...azanSettings, autoAzanEnabled: !azanSettings.autoAzanEnabled })}
+            className={`${barButton} ${azanSettings.autoAzanEnabled ? 'text-emerald-300' : 'text-neutral-500'}`}
+            aria-pressed={azanSettings.autoAzanEnabled}
+          >
+            {azanSettings.autoAzanEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            {t(azanSettings.autoAzanEnabled ? 'Azan on' : 'Azan off')}
+          </button>
+        </nav>
+
+        <div className="phone-overlays">{overlays}</div>
+      </div>
+    );
+  }
+
+  if (phone) return renderPhone();
 
   return (
     <div
@@ -1043,336 +1576,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose 
         </div>
       </footer>
 
-      {/* Azan Voices (remote-friendly): default voice + one per prayer */}
-      {openDialog === 'azan' && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center px-[96px] py-[54px] bg-black/85 backdrop-blur-md">
-          <div className="w-full max-w-[1300px] max-h-full flex flex-col rounded-[36px] bg-[var(--tv-dialog)] border border-amber-500/30 p-10 shadow-2xl">
-            <div className="flex items-center justify-between pb-5 mb-3 border-b border-white/10">
-              <div>
-                <h3 className="font-serif text-[48px] leading-tight font-bold text-white">{t('Azan Voices')}</h3>
-                <p className="text-[22px] text-neutral-400">{t('Press OK on Change to pick a voice for each prayer')}</p>
-              </div>
-              <button
-                onClick={closeDialog}
-                className="p-4 rounded-2xl bg-white/10 hover:bg-white/20 text-neutral-200 cursor-pointer"
-                title={t('Close')}
-              >
-                <X className="w-8 h-8" />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-2 overflow-y-auto p-2">
-              {[{ key: 'default', label: t('Default (all prayers)') }, ...AZAN_PRAYERS.map((p) => ({ key: p, label: i18n.prayer(p) }))].map((row, index) => {
-                const isDefaultRow = row.key === 'default';
-                const own = isDefaultRow ? null : azanSettings.prayerMuezzins?.[row.key as AzanPrayer];
-                const effective = isDefaultRow ? azanSettings.selectedMuezzin : getMuezzinForPrayer(azanSettings, row.key);
-                const isPreviewing = previewingRow === row.key;
-                return (
-                  <div
-                    key={row.key}
-                    className={`flex items-center gap-6 px-7 py-2.5 rounded-3xl border ${
-                      isDefaultRow ? 'bg-amber-500/10 border-amber-500/30' : 'bg-white/5 border-white/10'
-                    }`}
-                  >
-                    <div className="w-[300px] shrink-0 text-[28px] font-bold text-white">{row.label}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[26px] font-semibold text-amber-200 truncate">
-                        {t(MUEZZIN_SOURCES[effective].name)}
-                      </div>
-                      <div className="text-[20px] text-neutral-400">
-                        {isDefaultRow ? t('Used by every prayer set to Default') : own ? t(MUEZZIN_SOURCES[own].location) : t('Default')}
-                      </div>
-                    </div>
-                    <button
-                      ref={index === 0 ? azanDialogFirstButtonRef : undefined}
-                      onClick={() => (isDefaultRow ? cycleDefaultMuezzin() : cyclePrayerMuezzin(row.key as AzanPrayer))}
-                      className="px-7 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-[22px] font-bold text-white cursor-pointer"
-                      title={t('Change {name} voice', { name: row.label })}
-                    >
-                      {t('Change')}
-                    </button>
-                    {!isDefaultRow && iqamahOn && (
-                      <button
-                        onClick={() => toggleIqamahFor(row.key as AzanPrayer)}
-                        aria-pressed={iqamahFor(row.key as AzanPrayer)}
-                        className={`min-w-[170px] px-5 py-3 rounded-2xl text-[20px] font-bold text-center whitespace-nowrap cursor-pointer ${
-                          iqamahFor(row.key as AzanPrayer) ? 'bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30' : 'bg-white/5 text-neutral-500 hover:bg-white/15'
-                        }`}
-                        title={t('Turn the {prayer} Iqamah on or off', { prayer: row.label })}
-                      >
-                        {t(iqamahFor(row.key as AzanPrayer) ? 'Iqamah on' : 'Iqamah off')}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => togglePreview(row.key, effective)}
-                      className={`p-4 rounded-2xl cursor-pointer ${isPreviewing ? 'bg-rose-500 text-white' : 'bg-amber-500 text-neutral-950'}`}
-                      title={t(isPreviewing ? 'Stop {name} preview' : 'Listen to {name} voice', { name: row.label })}
-                    >
-                      {isPreviewing ? <Square className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current" />}
-                    </button>
-                  </div>
-                );
-              })}
-              {/* The Iqamah, played when the Iqamah countdown ends */}
-              <div className="flex items-center gap-6 px-7 py-2.5 rounded-3xl border bg-emerald-500/10 border-emerald-500/30">
-                <div className="w-[300px] shrink-0 text-[28px] font-bold text-white">{t('Iqamah')}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[26px] font-semibold text-amber-200 truncate">{t(IQAMAH_SOURCE.name)}</div>
-                  <div className="text-[20px] text-neutral-400">{t(iqamahOn ? 'Plays when the Iqamah countdown ends' : 'Off')}</div>
-                </div>
-                <button
-                  onClick={() => updateAzanSettings({ ...azanSettings, iqamahSound: !iqamahOn })}
-                  aria-pressed={iqamahOn}
-                  className={`px-7 py-3 rounded-2xl text-[22px] font-bold cursor-pointer ${
-                    iqamahOn ? 'bg-emerald-500/25 text-emerald-200 hover:bg-emerald-500/35' : 'bg-white/10 text-neutral-300 hover:bg-white/20'
-                  }`}
-                  title={t('Turn the Iqamah on or off')}
-                >
-                  {t(iqamahOn ? 'On' : 'Off')}
-                </button>
-                <button
-                  onClick={() => togglePreview('iqamah', 'iqamah')}
-                  className={`p-4 rounded-2xl cursor-pointer ${previewingRow === 'iqamah' ? 'bg-rose-500 text-white' : 'bg-amber-500 text-neutral-950'}`}
-                  title={t(previewingRow === 'iqamah' ? 'Stop the Iqamah preview' : 'Listen to the Iqamah')}
-                >
-                  {previewingRow === 'iqamah' ? <Square className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current" />}
-                </button>
-              </div>
-              {/* The Du'a after the Azan: which recitation (shown once there is more than one) */}
-              {DUA_IDS.length > 1 && (
-                <div className="flex items-center gap-6 px-7 py-2.5 rounded-3xl border bg-white/5 border-white/10">
-                  <div className="w-[300px] shrink-0 text-[28px] font-bold text-white">{t("Du'a after Azan")}</div>
-                  <div className="relative flex-1 min-w-0">
-                    <button
-                      ref={duaButtonRef}
-                      onClick={() => (duaMenuOpen ? closeDuaMenu() : openDuaMenu())}
-                      aria-haspopup="listbox"
-                      aria-expanded={duaMenuOpen}
-                      className="w-full flex items-center gap-4 px-6 py-2 rounded-2xl bg-white/10 hover:bg-white/20 text-start cursor-pointer"
-                      title={t("Change the Du'a recitation")}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[26px] font-semibold text-amber-200 truncate">{t(DUA_SOURCES[getDuaForSettings(azanSettings)].name)}</div>
-                        <div className="text-[20px] text-neutral-400 truncate">{t(DUA_SOURCES[getDuaForSettings(azanSettings)].location)}</div>
-                      </div>
-                      <ChevronDown className={`w-8 h-8 shrink-0 text-neutral-300 transition-transform ${duaMenuOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    {/* Its own dialog so the remote's arrows stay in the list; Back closes just the list */}
-                    {duaMenuOpen && (
-                      <div
-                        ref={duaMenuRef}
-                        role="dialog"
-                        aria-label={t("Du'a after Azan")}
-                        onKeyDown={(e) => {
-                          if (isBackKey(e)) {
-                            e.preventDefault();
-                            e.nativeEvent.stopPropagation();
-                            closeDuaMenu();
-                          }
-                        }}
-                        onBlur={(e) => {
-                          // Focus left the list (e.g. a click elsewhere); the toggle button handles itself
-                          const to = e.relatedTarget as Node | null;
-                          if (duaMenuOpenRef.current && !e.currentTarget.contains(to) && to !== duaButtonRef.current) closeDuaMenu();
-                        }}
-                        className="absolute bottom-full inset-x-0 mb-2 z-10 flex flex-col gap-1 p-2 rounded-2xl bg-[var(--tv-dialog)] border border-amber-500/40 shadow-2xl"
-                      >
-                        <div role="listbox" className="flex flex-col gap-1">
-                          {DUA_IDS.map((id) => {
-                            const chosen = id === getDuaForSettings(azanSettings);
-                            return (
-                              <button
-                                key={id}
-                                ref={chosen ? duaChosenOptionRef : undefined}
-                                role="option"
-                                aria-selected={chosen}
-                                onClick={() => chooseDua(id)}
-                                className={`flex items-center gap-4 px-5 py-2.5 rounded-xl text-start cursor-pointer ${
-                                  chosen ? 'bg-amber-500/20' : 'hover:bg-white/10 focus:bg-white/10'
-                                }`}
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-[24px] font-semibold text-white truncate">{t(DUA_SOURCES[id].name)}</div>
-                                  <div className="text-[18px] text-neutral-400 truncate">{t(DUA_SOURCES[id].location)}</div>
-                                </div>
-                                {chosen && <Check className="w-7 h-7 shrink-0 text-amber-300" />}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => updateAzanSettings({ ...azanSettings, duaAfterAzan: !duaOn })}
-                    aria-pressed={duaOn}
-                    className={`px-7 py-3 rounded-2xl text-[22px] font-bold cursor-pointer ${
-                      duaOn ? 'bg-emerald-500/25 text-emerald-200 hover:bg-emerald-500/35' : 'bg-white/10 text-neutral-300 hover:bg-white/20'
-                    }`}
-                    title={t("Turn the Du'a after the Azan on or off")}
-                  >
-                    {t(duaOn ? 'On' : 'Off')}
-                  </button>
-                  <button
-                    onClick={() => togglePreview('dua', 'dua')}
-                    className={`p-4 rounded-2xl cursor-pointer ${previewingRow === 'dua' ? 'bg-rose-500 text-white' : 'bg-amber-500 text-neutral-950'}`}
-                    title={t(previewingRow === 'dua' ? "Stop the Du'a preview" : "Listen to the Du'a")}
-                  >
-                    {previewingRow === 'dua' ? <Square className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current" />}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Language: the screen and the Hadith text separately */}
-      {openDialog === 'language' && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center px-[96px] py-[54px] bg-black/85 backdrop-blur-md">
-          <div className="w-full max-w-[1100px] max-h-full flex flex-col rounded-[36px] bg-[var(--tv-dialog)] border border-amber-500/30 p-10 shadow-2xl">
-            <div className="flex items-center justify-between pb-6 mb-6 border-b border-white/10">
-              <div>
-                <h3 className="font-serif text-[48px] leading-tight font-bold text-white">{t('Language')}</h3>
-                <p className="text-[22px] text-neutral-400">{t('Choose what is shown in Arabic')}</p>
-              </div>
-              <button onClick={closeDialog} className="p-4 rounded-2xl bg-white/10 hover:bg-white/20 text-neutral-200 cursor-pointer" title={t('Close')}>
-                <X className="w-8 h-8" />
-              </button>
-            </div>
-            <div className="flex flex-col gap-6">
-              {(
-                [
-                  { label: t('Screen (menus, prayer times, dates)'), value: uiLanguage, set: setUiLanguage },
-                  { label: t('Hadith text'), value: hadithLanguage, set: setHadithLanguage }
-                ] as { label: string; value: HadithLanguage; set: (l: HadithLanguage) => void }[]
-              ).map((row, rowIndex) => (
-                <div key={rowIndex} className="flex items-center justify-between gap-6 px-7 py-5 rounded-3xl bg-white/5 border border-white/10">
-                  <span className="text-[28px] font-semibold text-white">{row.label}</span>
-                  <div className="flex gap-3">
-                    {(['en', 'ar'] as const).map((lang, i) => (
-                      <button
-                        key={lang}
-                        ref={rowIndex === 0 && i === 0 ? languageFirstButtonRef : undefined}
-                        onClick={() => row.set(lang)}
-                        aria-pressed={row.value === lang}
-                        className={`px-8 py-4 rounded-2xl text-[26px] font-bold cursor-pointer ${lang === 'ar' ? 'font-arabic' : ''} ${
-                          row.value === lang ? 'bg-amber-500 text-neutral-950' : 'bg-white/10 hover:bg-white/20 text-white'
-                        }`}
-                      >
-                        {lang === 'ar' ? 'العربية' : 'English'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Hadith topic for the slides */}
-      {openDialog === 'topic' && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center px-[96px] py-[54px] bg-black/85 backdrop-blur-md">
-          <div className="w-full max-w-[1300px] max-h-full flex flex-col rounded-[36px] bg-[var(--tv-dialog)] border border-amber-500/30 p-10 shadow-2xl">
-            <div className="flex items-center justify-between pb-6 mb-6 border-b border-white/10">
-              <div>
-                <h3 className="font-serif text-[48px] leading-tight font-bold text-white">{t('Hadith topic for the slides')}</h3>
-                <p className="text-[22px] text-neutral-400">{t('Topics are found by keyword, so a few Hadiths may only mention the topic.')}</p>
-              </div>
-              <button onClick={closeDialog} className="p-4 rounded-2xl bg-white/10 hover:bg-white/20 text-neutral-200 cursor-pointer" title={t('Close')}>
-                <X className="w-8 h-8" />
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-4 overflow-y-auto p-2">
-              {[null, ...topics.map((x) => x.id)].map((id) => {
-                const item = topics.find((x) => x.id === id);
-                const selected = id === topic;
-                return (
-                  <button
-                    key={id ?? 'all'}
-                    ref={selected ? topicButtonRef : undefined}
-                    onClick={() => {
-                      setTopic(id);
-                      saveTvTopic(id);
-                      closeDialog();
-                      if (id) {
-                        pickRandomHadith(id).then((h) => showHadith(h, false));
-                      }
-                    }}
-                    className={`px-6 py-5 rounded-3xl border text-[26px] font-semibold text-start cursor-pointer ${
-                      selected ? 'bg-amber-500/20 border-amber-400 text-white' : 'bg-white/5 border-white/10 text-neutral-200 hover:bg-white/10'
-                    }`}
-                  >
-                    {item ? (i18n.isArabic ? item.nameAr : item.name) : t('All topics')}
-                    {item && <div className="text-[18px] text-neutral-400 mt-1">{t('{n} Hadiths', { n: item.positions.length })}</div>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mosque Picker (remote-friendly) */}
-      {isMosquePickerOpen && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center px-[96px] py-[54px] bg-black/85 backdrop-blur-md">
-          <div className="w-full max-w-[1500px] max-h-full flex flex-col rounded-[36px] bg-[var(--tv-dialog)] border border-amber-500/30 p-10 shadow-2xl">
-            <div className="flex items-center justify-between pb-6 mb-6 border-b border-white/10">
-              <div className="space-y-3">
-                <h3 className="font-serif text-[48px] font-bold text-white">{t('Choose Your Mosque')}</h3>
-                <HijriAdjust size="tv" />
-              </div>
-              <button
-                onClick={closeDialog}
-                className="p-4 rounded-2xl bg-white/10 hover:bg-white/20 text-neutral-200 cursor-pointer"
-                title={t('Close')}
-              >
-                <X className="w-8 h-8" />
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-4 overflow-y-auto pr-2 p-2">
-              {mosquesByState.map((m) => {
-                const isSelected = m.id === selectedMosque.id;
-                return (
-                  <button
-                    key={m.id}
-                    ref={isSelected ? selectedMosqueButtonRef : undefined}
-                    onClick={() => handleSelectMosque(m)}
-                    className={`text-start px-6 py-5 rounded-3xl border transition cursor-pointer ${
-                      isSelected
-                        ? 'bg-amber-500/20 border-amber-400 text-white'
-                        : 'bg-white/5 border-white/10 text-neutral-200 hover:bg-white/10'
-                    }`}
-                  >
-                    <div className="font-semibold text-[24px] leading-snug">{m.name}</div>
-                    <div className="text-[20px] text-neutral-400 mt-1">{m.suburb}, {m.state}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {openDialog === 'quran' && <QuranDialog player={quran} i18n={i18n} onClose={closeDialog} onPlay={closeQuranDialogAndPlay} onStop={stopQuranFromDialog} />}
-
-      {/* Iqamah countdown after the Adhan, then "prayer in progress" (Friday Dhuhr is Jumu'ah) */}
-      {(() => {
-        const phase = prayerPhase;
-        return phase && phase.key !== dismissedPhase && !openDialog ? (
-          <PrayerPhaseOverlay phase={phase} i18n={i18n} onDismiss={() => setDismissedPhase(phase.key)} />
-        ) : null;
-      })()}
-
-      {/* Brightness: dims everything, dialogs included, without blocking the remote */}
-      {effectiveBrightness < 100 && (
-        <div
-          aria-hidden="true"
-          className="fixed inset-0 z-[9999] bg-black pointer-events-none transition-opacity duration-300"
-          style={{ opacity: (100 - effectiveBrightness) / 100 }}
-        />
-      )}
+      {overlays}
     </div>
   );
 };
