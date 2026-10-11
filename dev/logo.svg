@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f1422" />
+      <stop offset="50%" stop-color="#07090f" />
+      <stop offset="100%" stop-color="#030407" />
+    </linearGradient>
+
+    <!-- Gold Gradient -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff2a8" />
+      <stop offset="30%" stop-color="#f59e0b" />
+      <stop offset="70%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#92400e" />
+    </linearGradient>
+
+    <!-- Emerald Glow Gradient -->
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+
+    <!-- Soft Ambient Radial Glow -->
+    <radialGradient id="ambientGlow" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.35" />
+      <stop offset="60%" stop-color="#10b981" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#030407" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Background Rounded Shield -->
+  <rect width="512" height="512" rx="120" fill="url(#bgGrad)" stroke="url(#goldGrad)" stroke-width="8" stroke-opacity="0.5" />
+
+  <!-- Ambient Glow Behind Dome -->
+  <circle cx="256" cy="230" r="180" fill="url(#ambientGlow)" />
+
+  <!-- Outer 8-Point Geometric Star / Rub el Hizb Border (Subtle) -->
+  <g stroke="url(#goldGrad)" stroke-width="3" stroke-opacity="0.3" fill="none">
+    <rect x="106" y="106" width="300" height="300" rx="20" />
+    <rect x="106" y="106" width="300" height="300" rx="20" transform="rotate(45 256 256)" />
+  </g>
+
+  <!-- Mosque Mihrab Outer Arch -->
+  <path d="M140 400 L140 270 Q140 180 256 120 Q372 180 372 270 L372 400 Z"
+        fill="#0a0d16"
+        stroke="url(#goldGrad)"
+        stroke-width="6" />
+
+  <!-- Mosque Mihrab Inner Arch -->
+  <path d="M168 400 L168 280 Q168 200 256 148 Q344 200 344 280 L344 400 Z"
+        fill="#0e1320"
+        stroke="url(#emeraldGrad)"
+        stroke-width="3"
+        stroke-opacity="0.7" />
+
+  <!-- Mosque Dome Silhouette with Golden Finial -->
+  <path d="M190 330 C190 230 256 185 256 185 C256 185 322 230 322 330 Z"
+        fill="url(#goldGrad)"
+        opacity="0.9" />
+
+  <!-- Dome Base & Arch Columns -->
+  <path d="M180 330 L332 330 L332 390 L180 390 Z" fill="#0c101a" stroke="url(#goldGrad)" stroke-width="4" />
+  
+  <!-- Minaret Left -->
+  <path d="M115 390 L115 220 L125 210 L125 390 Z" fill="url(#goldGrad)" opacity="0.6" />
+  <circle cx="120" cy="205" r="4" fill="#fbbf24" />
+
+  <!-- Minaret Right -->
+  <path d="M387 390 L387 220 L397 210 L397 390 Z" fill="url(#goldGrad)" opacity="0.6" />
+  <circle cx="392" cy="205" r="4" fill="#fbbf24" />
+
+  <!-- Central Crescent Moon & Radiant Star -->
+  <g transform="translate(256, 110) scale(1.1)">
+    <!-- Crescent Moon -->
+    <path d="M0 -32 A 26 26 0 0 0 -18 16 A 26 26 0 1 1 12 -28 A 24 24 0 0 0 0 -32 Z" fill="url(#goldGrad)" />
+    
+    <!-- 8-Point Star inside Crescent -->
+    <polygon points="6,-6 10,0 16,3 10,7 6,13 3,7 -3,3 3,0" fill="#fff" opacity="0.95" />
+  </g>
+
+  <!-- Open Quran / Book Silhouette at the Base -->
+  <g transform="translate(256, 360)">
+    <path d="M-60 0 Q-30 -12 0 4 Q30 -12 60 0 L50 20 Q25 10 0 24 Q-25 10 -50 20 Z"
+          fill="url(#goldGrad)" />
+    <line x1="0" y1="4" x2="0" y2="24" stroke="#78350f" stroke-width="2" />
+  </g>
+</svg>
