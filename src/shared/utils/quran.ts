@@ -32,6 +32,16 @@ export interface Reciter {
    */
   quranCentral?: string;
   /**
+   * Quran.com's verse timings are for another recording than its audio (Maher al-Mu'aiqly:
+   * Al-Fatihah's end at 37 s of 63 s): played without them, like Quran Central's.
+   */
+  timingsOff?: boolean;
+  /**
+   * The verse timings are close enough to show the verse, but too far off (up to a second,
+   * about one verse in five) to stop the recitation for the English after each verse.
+   */
+  roughTimings?: boolean;
+  /**
    * English translation: its edition on cdn.islamic.network. Surah by surah (the Arabic
    * recitation with the translation after each verse, no verse timings) or, with
    * `verseByVerse`, one file per verse read in English only, played one after another.
@@ -46,8 +56,8 @@ export const RECITERS: Reciter[] = [
   { id: 7, name: 'Mishary Rashid Alafasy', nameAr: 'مشاري راشد العفاسي' },
   { id: 3, name: 'Abdur-Rahman as-Sudais', nameAr: 'عبد الرحمن السديس' },
   { id: 10, name: "Sa'ud ash-Shuraym", nameAr: 'سعود الشريم' },
-  { id: 159, name: "Maher al-Mu'aiqly", nameAr: 'ماهر المعيقلي' },
-  { id: 174, name: 'Yasser ad-Dussary', nameAr: 'ياسر الدوسري' },
+  { id: 159, name: "Maher al-Mu'aiqly", nameAr: 'ماهر المعيقلي', timingsOff: true },
+  { id: 174, name: 'Yasser ad-Dussary', nameAr: 'ياسر الدوسري', roughTimings: true },
   { id: 2, name: 'Abdul Basit (Murattal)', nameAr: 'عبد الباسط عبد الصمد (مرتل)' },
   { id: 1, name: 'Abdul Basit (Mujawwad)', nameAr: 'عبد الباسط عبد الصمد (مجود)' },
   { id: 6, name: 'Mahmoud Khalil al-Husary', nameAr: 'محمود خليل الحصري' },
@@ -66,7 +76,7 @@ export const RECITERS: Reciter[] = [
 /** False for reciters whose recitations have no verse timings (the verse can't be followed). */
 export function hasVerseTimings(reciter: number): boolean {
   const r = RECITERS.find((r) => r.id === reciter);
-  return !r?.quranCentral && (!r?.islamicNetwork || !!r.verseByVerse);
+  return !r?.quranCentral && !r?.timingsOff && (!r?.islamicNetwork || !!r.verseByVerse);
 }
 
 /**
@@ -75,7 +85,7 @@ export function hasVerseTimings(reciter: number): boolean {
  */
 export function canAddEnglish(reciter: number): boolean {
   const r = RECITERS.find((r) => r.id === reciter);
-  return !!r && !r.quranCentral && !r.islamicNetwork;
+  return !!r && !r.quranCentral && !r.islamicNetwork && !r.timingsOff && !r.roughTimings;
 }
 
 /** The reciter reads in English (its translation is shown whatever the Hadith language). */
@@ -212,10 +222,11 @@ export function englishVerseUrl(surah: number, verse: number): string {
 /**
  * With the English after each verse: the verse (index) whose Arabic has just ended at `ms`
  * and whose English is still to be read, or null. `done` is the last verse index read in English.
+ * Not the last verse: its timing can end before the recitation does, so it waits for the audio's end.
  */
 export function verseToTranslate(timings: VerseTiming[], ms: number, done: number): number | null {
   const next = done + 1;
-  return next < timings.length && ms >= timings[next].to ? next : null;
+  return next < timings.length - 1 && ms >= timings[next].to ? next : null;
 }
 
 /** Audio file and verse timings for one surah by one reciter. */
@@ -241,7 +252,7 @@ export function loadRecitation(reciter: number, surah: number): Promise<Recitati
         from: t.timestamp_from,
         to: t.timestamp_to
       }));
-      return { url: file.audio_url, timings };
+      return { url: file.audio_url, timings: RECITERS.find((r) => r.id === reciter)?.timingsOff ? [] : timings };
     });
     request.catch(() => recitationCache.delete(key));
     recitationCache.set(key, request);

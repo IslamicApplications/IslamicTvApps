@@ -294,7 +294,7 @@ export function useQuranPlayer(): QuranPlayer {
   stopRef.current = stop;
   // Runs often while the Arabic plays with the English on (timeupdate alone comes only ~4 times a second)
   const checkEnglishRef = useRef(() => {});
-  const endEnglishRef = useRef(() => {});
+  const endEnglishRef = useRef((_resume: boolean) => {});
   useEffect(() => {
     const audio = getAudio();
     const english = getEnglishAudio();
@@ -329,27 +329,38 @@ export function useQuranPlayer(): QuranPlayer {
       });
     };
 
-    /** The English has been read (or couldn't be): on with the Arabic, or the surah is over */
-    const endEnglish = () => {
+    /**
+     * The English has been read (or couldn't be, or was turned off): on with the Arabic, or
+     * the surah is over. Without `resume` (turned off while paused) the Arabic waits for Play.
+     */
+    const endEnglish = (resume = true) => {
       const index = englishVerseRef.current;
       if (index === null) return;
       englishVerseRef.current = null;
-      if (finishAfterEnglishRef.current) {
-        finishSurah();
-        return;
-      }
+      english.pause();
       // Back to where the verse ended, in case the check came a moment late
       const end = timingsRef.current[index]?.to;
       if (end !== undefined && audio.currentTime > end / 1000) audio.currentTime = end / 1000;
-      audio.play().catch(() => {});
+      if (finishAfterEnglishRef.current) {
+        if (resume) finishSurah();
+        else {
+          // Paused on the last verse: the Arabic has ended, so Play would start the surah again
+          loadedRef.current = null;
+          saveQuranPosition(null);
+          stopRef.current();
+        }
+      } else if (resume) {
+        audio.play().catch(() => {});
+      }
     };
     endEnglishRef.current = endEnglish;
+    const onEnglishDone = () => endEnglish();
 
     checkEnglishRef.current = () => {
       if (englishVerseRef.current !== null || tracksRef.current || audio.paused || !englishOn()) return;
       const timings = timingsRef.current;
       const index = verseToTranslate(timings, audio.currentTime * 1000, englishDoneRef.current);
-      if (index !== null) startEnglish(index, index === timings.length - 1);
+      if (index !== null) startEnglish(index, false);
     };
     const onPlaying = () => {
       setPlaying(true);
@@ -373,6 +384,7 @@ export function useQuranPlayer(): QuranPlayer {
         // Rounded so the screen re-renders only when the bar visibly moves
         if (audio.duration) setProgress(Math.round((audio.currentTime / audio.duration) * 1000) / 1000);
       }
+      checkEnglishRef.current();
       if (!audio.paused && Date.now() - lastSaveRef.current > 3000) {
         lastSaveRef.current = Date.now();
         savePosition();
@@ -422,15 +434,15 @@ export function useQuranPlayer(): QuranPlayer {
     english.addEventListener('playing', onEnglishPlaying);
     english.addEventListener('pause', onEnglishPause);
     english.addEventListener('waiting', onWaiting);
-    english.addEventListener('ended', endEnglish);
+    english.addEventListener('ended', onEnglishDone);
     // A verse that won't load is skipped, not the recitation
-    english.addEventListener('error', endEnglish);
+    english.addEventListener('error', onEnglishDone);
     return () => {
       english.removeEventListener('playing', onEnglishPlaying);
       english.removeEventListener('pause', onEnglishPause);
       english.removeEventListener('waiting', onWaiting);
-      english.removeEventListener('ended', endEnglish);
-      english.removeEventListener('error', endEnglish);
+      english.removeEventListener('ended', onEnglishDone);
+      english.removeEventListener('error', onEnglishDone);
       english.pause();
       audio.removeEventListener('playing', onPlaying);
       audio.removeEventListener('pause', onPause);
@@ -455,7 +467,7 @@ export function useQuranPlayer(): QuranPlayer {
     if (settings.englishAfterVerse) {
       if (audio && englishVerseRef.current === null) englishDoneRef.current = verseAt(timingsRef.current, audio.currentTime * 1000) - 1;
     } else {
-      endEnglishRef.current();
+      endEnglishRef.current(!englishAudioRef.current?.paused);
     }
   }, [settings.englishAfterVerse]);
 

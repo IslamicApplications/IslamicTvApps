@@ -80,7 +80,8 @@ describe('quran', () => {
     expect(verseToTranslate(timings, 6000, -1)).toBe(0); // verse 1 over: its English
     expect(verseToTranslate(timings, 6050, 0)).toBeNull(); // already read: on with verse 2
     expect(verseToTranslate(timings, 11020, 0)).toBe(1);
-    expect(verseToTranslate(timings, 16000, 2)).toBeNull(); // all read
+    // The last verse waits for the end of the audio (its timing can end before the recitation)
+    expect(verseToTranslate(timings, 16500, 1)).toBeNull();
     expect(englishVerseUrl(2, 255)).toBe('https://cdn.islamic.network/quran/audio/192/en.walk/262.mp3');
   });
 
@@ -88,6 +89,10 @@ describe('quran', () => {
     expect(canAddEnglish(7)).toBe(true); // Alafasy (Quran.com)
     expect(canAddEnglish(3)).toBe(true); // Sudais
     expect(canAddEnglish(2919)).toBe(false); // al-Faqih: no timings
+    expect(canAddEnglish(159)).toBe(false); // Mu'aiqly: timings for another recording
+    expect(canAddEnglish(174)).toBe(false); // Dussary: timings up to a second off
+    expect(hasVerseTimings(159)).toBe(false);
+    expect(hasVerseTimings(174)).toBe(true);
     expect(canAddEnglish(9001)).toBe(false); // already English
     expect(canAddEnglish(9002)).toBe(false);
   });
