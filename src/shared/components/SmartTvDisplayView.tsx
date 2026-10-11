@@ -241,19 +241,25 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose,
       azanWakeStep(bridge, prayerPhase !== null || isAzanPlaying(), clockDate.getTime(), azanWakeSeenRef);
     } catch {}
   }, [clockDate]);
-  // The two permissions it needs, read again when the TV's settings page closes
+  // The two permissions it needs, read every 2 seconds while the Azan menu is open (the app's
+  // page isn't told when the TV's settings page, opened by Allow, closes again)
   const [wakeStatus, setWakeStatus] = useState<AzanWakeStatus | null>(() => (bridge ? azanWakeStatus(bridge) : null));
   useEffect(() => {
     if (!bridge || openDialog !== 'azan') return;
-    const update = () => setWakeStatus(azanWakeStatus(bridge));
+    const update = () =>
+      setWakeStatus((old) => {
+        const status = azanWakeStatus(bridge);
+        return old && old.exact === status.exact && old.overlay === status.overlay ? old : status;
+      });
     update();
-    document.addEventListener('visibilitychange', update);
-    window.addEventListener('focus', update);
-    return () => {
-      document.removeEventListener('visibilitychange', update);
-      window.removeEventListener('focus', update);
-    };
+    const timer = setInterval(update, 2000);
+    return () => clearInterval(timer);
   }, [openDialog]);
+  // Allow goes once both are allowed: the remote's focus moves to the On/Off button beside it
+  const openForAzanButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (openDialog === 'azan' && (!document.activeElement || document.activeElement === document.body)) openForAzanButtonRef.current?.focus();
+  }, [wakeStatus]);
   // When the Iqamah countdown ends, the Iqamah plays once (only live: not when the TV is
   // switched on later in the prayer; off with Auto-Azan muted or the Iqamah turned off)
   useEffect(() => {
@@ -857,6 +863,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose,
                     </button>
                   )}
                   <button
+                    ref={openForAzanButtonRef}
                     onClick={() => updateAzanSettings({ ...azanSettings, openForAzan: !openForAzan })}
                     aria-pressed={openForAzan}
                     className={`px-7 py-3 rounded-2xl text-[22px] font-bold cursor-pointer ${

@@ -151,7 +151,11 @@ public class MainActivity extends Activity {
         boolean wasAsleep = wakeWasAsleep;
         endAzanWake();
         if (otherApp) moveTaskToBack(true);
-        else if (wasAsleep) getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        else if (wasAsleep) {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            // The page's screen wake lock keeps the screen on through the WebView itself
+            web.setKeepScreenOn(false);
+        }
     }
 
     /** The remote was used (or the prayer is over): the app no longer goes back by itself. */
