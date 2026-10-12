@@ -6,7 +6,7 @@ import { claimIqamahTrigger, DEFAULT_AZAN_SETTINGS, DUA_IDS, DUA_SOURCES, getDua
 import { getQuranPosition, resumeStartSeconds, saveQuranPosition } from '../src/shared/utils/quran';
 import { importSettingsFromHash } from '../src/tv/importSettings';
 import { confirmLeave, isBackKey } from '../src/shared/hooks/useBackHandler';
-import { directionScore, keyDirection, type Rect } from '../src/tv/useSpatialNavigation';
+import { directionScore, keyDirection, mostlyHidden, type Rect } from '../src/tv/useSpatialNavigation';
 import { isPhoneScreen, phoneMenuZoom } from '../src/tv/phone';
 
 const amssa = INITIAL_MOSQUES.find((m) => m.id === 'amssa')!;
@@ -218,6 +218,17 @@ describe('Remote control navigation', () => {
     const continueButton = rect(933, 262, 312, 57);
     const baqarah = rect(405, 342, 161, 60);
     expect(directionScore(stop, continueButton, 'right')!).toBeLessThan(directionScore(stop, baqarah, 'right')!);
+  });
+
+  it('reaches reciters cut by a few pixels at the end of the row, not ones mostly scrolled away', () => {
+    // Measured on the Android TV emulator with the row scrolled to its end: the reciter row
+    // shows 206–796, the two Somali buttons are cut by 16 and 5 px, Oromo mostly hidden
+    const row = rect(206, 140, 590, 70);
+    expect(mostlyHidden(rect(190, 148, 264, 54), row)).toBe(false);
+    expect(mostlyHidden(rect(460, 148, 341, 54), row)).toBe(false);
+    expect(mostlyHidden(rect(-27, 148, 211, 54), row)).toBe(true);
+    // A grid row half under the buttons above the surah list
+    expect(mostlyHidden(rect(100, 300, 160, 60), rect(80, 340, 700, 400))).toBe(true);
   });
 
   it('understands the arrows and Back of different TV remotes', () => {

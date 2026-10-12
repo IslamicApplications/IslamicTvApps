@@ -92,17 +92,25 @@ function scrollContainer(el: HTMLElement): HTMLElement | null {
 }
 
 /**
- * Scrolled (even partly) out of sight in another list: not a target, or a half-hidden row
+ * Less than half of `r` shows in the list's box `box`. A button only clipped by the list's
+ * edge still counts as shown (focusing it scrolls it into view): at the end of the reciter
+ * row the buttons, wider than the row's steps, are each cut by a few pixels.
+ */
+export function mostlyHidden(r: Rect, box: Rect): boolean {
+  const shownWidth = Math.min(r.right, box.right) - Math.max(r.left, box.left);
+  const shownHeight = Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top);
+  return shownWidth < r.width / 2 || shownHeight < r.height / 2;
+}
+
+/**
+ * Scrolled (mostly) out of sight in another list: not a target, or a half-hidden row
  * behind the buttons above a list would catch the arrows. In the list the focus is in, the
  * next item out of sight is a target, so the arrows scroll the list.
  */
 function hiddenInOtherList(el: HTMLElement, current: HTMLElement): boolean {
   const container = scrollContainer(el);
   if (!container || container.contains(current)) return false;
-  const box = container.getBoundingClientRect();
-  const r = el.getBoundingClientRect();
-  const slack = 2;
-  return r.left < box.left - slack || r.right > box.right + slack || r.top < box.top - slack || r.bottom > box.bottom + slack;
+  return mostlyHidden(el.getBoundingClientRect(), container.getBoundingClientRect());
 }
 
 function findNext(current: HTMLElement, candidates: HTMLElement[], dir: Direction): HTMLElement | null {

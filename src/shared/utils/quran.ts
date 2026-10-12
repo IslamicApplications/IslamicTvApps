@@ -4,7 +4,8 @@
  * the verse timings let the screen show the verse being recited. A few reciters
  * stream from Quran Central (qurancentral.com) instead, without verse timings, and the
  * English translations from the Islamic Network's CDN (the files api.alquran.cloud lists),
- * and the Oromo translation from the Internet Archive.
+ * the Oromo translation from the Internet Archive, and the Somali translation verse by verse
+ * from QuranEnc (quranenc.com).
  */
 import surahsData from '../data/surahs.json';
 import oromoFiles from '../data/oromoQuran.json';
@@ -62,6 +63,14 @@ export interface Reciter {
    * (their names follow no one pattern). Streamed surah by surah, without verse timings.
    */
   archive?: { item: string; files: string[] };
+  /** Translation on QuranEnc: its id on d.quranenc.com, one file per verse played one after another. */
+  quranEnc?: string;
+  /**
+   * With `quranEnc`: each verse recited in Arabic first, from this reciter's verse files on
+   * everyayah.com, then its translation; the translation turned down to `translationVolume`.
+   */
+  everyAyah?: string;
+  translationVolume?: number;
 }
 
 export const RECITERS: Reciter[] = [
@@ -89,6 +98,16 @@ export const RECITERS: Reciter[] = [
     name: 'Oromo translation (Afaan Oromoo)',
     nameAr: 'ترجمة بلغة الأورومو',
     archive: { item: 'Translation_of_the_Noble_Quran_in_the_Oromo_Language-HQ-Audio-MP3', files: oromoFiles as string[] }
+  },
+  { id: 9102, name: 'Somali Translation - Abdullah Hasan Yaqoub', nameAr: 'ترجمة صومالية: عبد الله حسن يعقوب', quranEnc: 'somali_yacob' },
+  // The Somali is about 5 LU louder than al-Hudhaify (Al-Fatihah, Al-Mulk)
+  {
+    id: 9103,
+    name: 'Al-Hudhaify + Somali Translation - Abdullah Hasan Yaqoub',
+    nameAr: 'الحذيفي + ترجمة صومالية: عبد الله حسن يعقوب',
+    quranEnc: 'somali_yacob',
+    everyAyah: 'Hudhaify_128kbps',
+    translationVolume: 0.6
   }
 ];
 
@@ -104,7 +123,7 @@ export function hasVerseTimings(reciter: number): boolean {
  */
 export function canAddEnglish(reciter: number): boolean {
   const r = RECITERS.find((r) => r.id === reciter);
-  return !!r && !r.quranCentral && !r.islamicNetwork && !r.archive && !r.timingsOff && !r.roughTimings;
+  return !!r && !r.quranCentral && !r.islamicNetwork && !r.archive && !r.quranEnc && !r.timingsOff && !r.roughTimings;
 }
 
 /** Ibrahim Walk's English (LUFS); a browser can't make audio louder, so a louder reciter is turned down */
@@ -219,6 +238,10 @@ export interface Recitation {
   timings: VerseTiming[];
   /** One file per verse, played in turn (url is the first) */
   tracks?: string[];
+  /** Files per verse in `tracks` (default 1): the Arabic, then its translation */
+  filesPerVerse?: number;
+  /** Volume of each verse's translation file (after the first) */
+  translationVolume?: number;
 }
 
 export interface SurahText {
@@ -281,6 +304,16 @@ export function loadRecitation(reciter: number, surah: number): Promise<Recitati
   }
   if (r?.archive) {
     return Promise.resolve({ url: `https://archive.org/download/${r.archive.item}/${encodeURIComponent(r.archive.files[surah - 1])}`, timings: [] });
+  }
+  if (r?.quranEnc) {
+    const pad = (n: number) => String(n).padStart(3, '0');
+    const tracks = Array.from({ length: SURAHS[surah - 1].verses }, (_, i) => {
+      const file = `${pad(surah)}${pad(i + 1)}.mp3`;
+      const translation = `https://d.quranenc.com/data/audio/${r.quranEnc}/${file}`;
+      return r.everyAyah ? [`https://everyayah.com/data/${r.everyAyah}/${file}`, translation] : [translation];
+    }).flat();
+    if (!r.everyAyah) return Promise.resolve({ url: tracks[0], timings: [], tracks });
+    return Promise.resolve({ url: tracks[0], timings: [], tracks, filesPerVerse: 2, translationVolume: r.translationVolume });
   }
   if (r?.islamicNetwork && r.verseByVerse) {
     const tracks = Array.from({ length: SURAHS[surah - 1].verses }, (_, i) => verseAudioUrl(r.islamicNetwork!, surah, i + 1));
