@@ -4,7 +4,8 @@
  * the verse timings let the screen show the verse being recited. A few reciters
  * stream from Quran Central (qurancentral.com) instead, without verse timings, and the
  * English translations from the Islamic Network's CDN (the files api.alquran.cloud lists),
- * and the Oromo translation from the Internet Archive.
+ * the Oromo translation from the Internet Archive, and the Somali translation verse by verse
+ * from QuranEnc (quranenc.com).
  */
 import surahsData from '../data/surahs.json';
 import oromoFiles from '../data/oromoQuran.json';
@@ -62,6 +63,8 @@ export interface Reciter {
    * (their names follow no one pattern). Streamed surah by surah, without verse timings.
    */
   archive?: { item: string; files: string[] };
+  /** Translation on QuranEnc: its id on d.quranenc.com, one file per verse played one after another. */
+  quranEnc?: string;
 }
 
 export const RECITERS: Reciter[] = [
@@ -89,7 +92,8 @@ export const RECITERS: Reciter[] = [
     name: 'Oromo translation (Afaan Oromoo)',
     nameAr: 'ترجمة بلغة الأورومو',
     archive: { item: 'Translation_of_the_Noble_Quran_in_the_Oromo_Language-HQ-Audio-MP3', files: oromoFiles as string[] }
-  }
+  },
+  { id: 9102, name: 'Somali Translation - Abdullah Hasan Yaqoub', nameAr: 'ترجمة صومالية: عبد الله حسن يعقوب', quranEnc: 'somali_yacob' }
 ];
 
 /** False for reciters whose recitations have no verse timings (the verse can't be followed). */
@@ -104,7 +108,7 @@ export function hasVerseTimings(reciter: number): boolean {
  */
 export function canAddEnglish(reciter: number): boolean {
   const r = RECITERS.find((r) => r.id === reciter);
-  return !!r && !r.quranCentral && !r.islamicNetwork && !r.archive && !r.timingsOff && !r.roughTimings;
+  return !!r && !r.quranCentral && !r.islamicNetwork && !r.archive && !r.quranEnc && !r.timingsOff && !r.roughTimings;
 }
 
 /** Ibrahim Walk's English (LUFS); a browser can't make audio louder, so a louder reciter is turned down */
@@ -281,6 +285,11 @@ export function loadRecitation(reciter: number, surah: number): Promise<Recitati
   }
   if (r?.archive) {
     return Promise.resolve({ url: `https://archive.org/download/${r.archive.item}/${encodeURIComponent(r.archive.files[surah - 1])}`, timings: [] });
+  }
+  if (r?.quranEnc) {
+    const pad = (n: number) => String(n).padStart(3, '0');
+    const tracks = Array.from({ length: SURAHS[surah - 1].verses }, (_, i) => `https://d.quranenc.com/data/audio/${r.quranEnc}/${pad(surah)}${pad(i + 1)}.mp3`);
+    return Promise.resolve({ url: tracks[0], timings: [], tracks });
   }
   if (r?.islamicNetwork && r.verseByVerse) {
     const tracks = Array.from({ length: SURAHS[surah - 1].verses }, (_, i) => verseAudioUrl(r.islamicNetwork!, surah, i + 1));
