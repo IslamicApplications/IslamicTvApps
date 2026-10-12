@@ -76,6 +76,10 @@ export function useQuranPlayer(): QuranPlayer {
   // A reciter with one file per verse: the files and the one playing (its verse index)
   const tracksRef = useRef<string[] | null>(null);
   const trackRef = useRef(0);
+  /** With the Arabic and its translation as separate files: files per verse, and the translation's volume */
+  const filesPerVerseRef = useRef(1);
+  const translationVolumeRef = useRef(1);
+  const trackVerse = () => Math.floor(trackRef.current / filesPerVerseRef.current);
   // English after each verse: a second player, the verse (index) it is reading or null
   // while the Arabic plays, the last verse read in English, and whether the surah ends after it
   const englishAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -100,8 +104,9 @@ export function useQuranPlayer(): QuranPlayer {
     const loaded = loadedRef.current;
     if (!audio || !loaded || !(audio.currentTime > 0)) return;
     if (tracksRef.current) {
-      // The time is within the verse's own file
-      saveQuranPosition({ ...loaded, time: audio.currentTime, verse: trackRef.current + 1 });
+      // The time is within the verse's own file; in its translation, the verse starts again
+      const first = trackRef.current % filesPerVerseRef.current === 0;
+      saveQuranPosition({ ...loaded, time: first ? audio.currentTime : 0, verse: trackVerse() + 1 });
       return;
     }
     // While a verse's English is read, the Arabic waits at the verse's end: save a moment
@@ -198,7 +203,11 @@ export function useQuranPlayer(): QuranPlayer {
         if (token !== tokenRef.current) return;
         timingsRef.current = recitation.timings;
         tracksRef.current = recitation.tracks ?? null;
-        trackRef.current = recitation.tracks ? resumeTrack(from, n, recitation.tracks.length) : 0;
+        filesPerVerseRef.current = recitation.filesPerVerse ?? 1;
+        translationVolumeRef.current = recitation.translationVolume ?? 1;
+        trackRef.current = recitation.tracks
+          ? resumeTrack(from, n, recitation.tracks.length / filesPerVerseRef.current) * filesPerVerseRef.current
+          : 0;
         setTimed(recitation.timings.length > 0 || !!recitation.tracks);
         loadedRef.current = { surah: n, reciter };
         audio.volume = arabicVolume(reciter, settingsRef.current.englishAfterVerse);
@@ -403,7 +412,7 @@ export function useQuranPlayer(): QuranPlayer {
     const onTime = () => {
       const tracks = tracksRef.current;
       if (tracks) {
-        setVerseIndex(trackRef.current);
+        setVerseIndex(trackVerse());
         const withinVerse = audio.duration ? audio.currentTime / audio.duration : 0;
         setProgress(Math.round(((trackRef.current + withinVerse) / tracks.length) * 1000) / 1000);
       } else if (englishVerseRef.current === null) {
@@ -430,7 +439,10 @@ export function useQuranPlayer(): QuranPlayer {
       const tracks = tracksRef.current;
       if (tracks && trackRef.current < tracks.length - 1) {
         trackRef.current++;
-        setVerseIndex(trackRef.current);
+        setVerseIndex(trackVerse());
+        if (filesPerVerseRef.current > 1) {
+          audio.volume = trackRef.current % filesPerVerseRef.current === 0 ? 1 : translationVolumeRef.current;
+        }
         audio.src = tracks[trackRef.current];
         audio.play().catch((err) => {
           if (err?.name !== 'AbortError') onError();

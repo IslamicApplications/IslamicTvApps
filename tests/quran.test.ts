@@ -81,6 +81,19 @@ describe('quran', () => {
     expect(baqarah.tracks![285]).toBe('https://d.quranenc.com/data/audio/somali_yacob/002286.mp3');
   });
 
+  it('plays al-Hudhaify in Arabic, then the Somali translation, verse by verse', async () => {
+    expect(hasVerseTimings(9103)).toBe(true);
+    expect(canAddEnglish(9103)).toBe(false);
+    const nas = await loadRecitation(9103, 114);
+    expect(nas.filesPerVerse).toBe(2);
+    expect(nas.translationVolume).toBe(0.6);
+    expect(nas.tracks).toHaveLength(12);
+    expect(nas.url).toBe('https://everyayah.com/data/Hudhaify_128kbps/114001.mp3');
+    expect(nas.tracks![1]).toBe('https://d.quranenc.com/data/audio/somali_yacob/114001.mp3');
+    expect(nas.tracks![11]).toBe('https://d.quranenc.com/data/audio/somali_yacob/114006.mp3');
+    expect((await loadRecitation(9102, 114)).filesPerVerse).toBeUndefined();
+  });
+
   it('carries the English translation on from the verse it stopped at', () => {
     const stopped = { surah: 2, reciter: 9001, time: 4.5, verse: 255 };
     expect(resumeTrack(stopped, 2, 286)).toBe(254);
