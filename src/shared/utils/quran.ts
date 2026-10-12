@@ -95,8 +95,8 @@ export const RECITERS: Reciter[] = [
   // Other languages
   {
     id: 9101,
-    name: 'Oromo translation (Afaan Oromoo)',
-    nameAr: 'ترجمة بلغة الأورومو',
+    name: 'Quran Tafsir Afaan Oromoo By Sheekh Muhammad Rashaad Abdullee',
+    nameAr: 'تفسير القرآن بلغة الأورومو',
     archive: { item: 'Translation_of_the_Noble_Quran_in_the_Oromo_Language-HQ-Audio-MP3', files: oromoFiles as string[] }
   },
   { id: 9102, name: 'Somali Translation - Abdullah Hasan Yaqoub', nameAr: 'ترجمة صومالية: عبد الله حسن يعقوب', quranEnc: 'somali_yacob' },
