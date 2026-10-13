@@ -76,6 +76,8 @@ export const AR: Record<string, string> = {
   'Exit TV View': 'الخروج من عرض التلفاز',
   'Press OK on Change to pick a voice for each prayer': 'اضغط OK على «تغيير» لاختيار صوت لكل صلاة',
   Close: 'إغلاق',
+  'Scroll up': 'تمرير لأعلى',
+  'Scroll down': 'تمرير لأسفل',
   'Default (all prayers)': 'الافتراضي (كل الصلوات)',
   'Used by every prayer set to Default': 'يُستخدم لكل صلاة مضبوطة على الافتراضي',
   Default: 'الافتراضي',
