@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BookOpen, ChevronLeft, ChevronRight, Languages, Pause, Play, Repeat, Square, X } from 'lucide-react';
+import { ScrollArrows } from './ScrollArrows';
 import {
   BISMILLAH,
   arabicVolume,
@@ -744,6 +745,7 @@ export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose,
   const savedPosition = getQuranPosition();
   const saved = savedPosition?.surah === settings.surah && savedPosition.time > 10 ? savedPosition : null;
   const reciterRowRef = useRef<HTMLDivElement>(null);
+  const surahListRef = useRef<HTMLDivElement>(null);
   const reciterIndex = Math.max(0, RECITERS.findIndex((r) => r.id === settings.reciter));
   const chooseReciter = (index: number) => {
     player.updateSettings({ reciter: RECITERS[(index + RECITERS.length) % RECITERS.length].id });
@@ -871,7 +873,8 @@ export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose,
           )}
         </div>
 
-        <div className={`grid ${phone ? 'grid-cols-3' : 'grid-cols-6'} gap-3 overflow-y-auto p-2`}>
+        <div className="flex gap-4 min-h-0">
+        <div ref={surahListRef} data-tv-center-focus className={`flex-1 grid ${phone ? 'grid-cols-3' : 'grid-cols-6'} gap-3 overflow-y-auto p-2`}>
           {SURAHS.map((s) => {
             const selected = s.n === settings.surah;
             return (
@@ -894,6 +897,8 @@ export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose,
               </button>
             );
           })}
+        </div>
+        <ScrollArrows listRef={surahListRef} t={t} />
         </div>
       </div>
     </div>

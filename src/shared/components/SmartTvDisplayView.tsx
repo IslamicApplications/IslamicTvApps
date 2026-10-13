@@ -5,6 +5,7 @@ import { getHijriDate } from '../utils/hijri';
 import { loadArabicText, loadDailyHadithOrBundled, loadRandomHadith, loadRandomTopicHadith, loadTopics, HadithTopic, describeHadith } from '../utils/hadithLibrary';
 import { GradeBadge } from './GradeBadge';
 import { HijriAdjust } from './HijriAdjust';
+import { ScrollArrows } from './ScrollArrows';
 import { PrayerPhaseOverlay, getPrayerPhase, quranMayContinue, shouldPlayIqamah } from './PrayerPhaseOverlay';
 import { QuranDialog, QuranNowPlaying, useQuranPlayer } from './QuranPlayer';
 import { getHadithLanguage, useDisplayedHadith, useHadithLanguage, useUiLanguage, setUiLanguage, HadithLanguage } from '../hooks/useHadithLanguage';
@@ -91,7 +92,6 @@ import {
   Languages,
   Palette,
   ChevronDown,
-  ChevronUp,
   Check
 } from 'lucide-react';
 
@@ -1131,24 +1131,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose,
                 );
               })}
             </div>
-            {/* Page the list up or down: Right from the list, then OK (or click with a pointer) */}
-            {pickerMosques.length > (phone ? 9 : 8) && (
-              <div className="flex flex-col justify-between gap-4 p-2">
-                {([['up', ChevronUp, -1], ['down', ChevronDown, 1]] as const).map(([dir, Icon, sign]) => (
-                  <button
-                    key={dir}
-                    onClick={() => {
-                      const list = pickerListRef.current;
-                      list?.scrollBy({ top: sign * list.clientHeight * 0.8, behavior: 'smooth' });
-                    }}
-                    className="flex-1 min-h-[96px] px-5 flex items-center justify-center rounded-3xl bg-white/10 hover:bg-white/20 border border-white/10 text-neutral-200 cursor-pointer"
-                    title={t(dir === 'up' ? 'Scroll up' : 'Scroll down')}
-                  >
-                    <Icon className="w-12 h-12" />
-                  </button>
-                ))}
-              </div>
-            )}
+            {pickerMosques.length > (phone ? 9 : 8) && <ScrollArrows listRef={pickerListRef} t={t} />}
             </div>
           </div>
         </div>
