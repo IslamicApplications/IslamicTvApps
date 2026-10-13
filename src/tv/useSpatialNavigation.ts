@@ -168,7 +168,10 @@ export function useSpatialNavigation(): void {
 
       if (next) {
         next.focus();
-        next.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        // A list marked data-tv-center-focus (the mosque picker) keeps the focused item in
+        // its middle, so the rows before and after it stay in sight
+        const center = next.closest('[data-tv-center-focus]') !== null;
+        next.scrollIntoView({ block: center ? 'center' : 'nearest', inline: 'nearest' });
       }
     };
 
