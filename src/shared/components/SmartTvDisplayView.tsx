@@ -5,6 +5,7 @@ import { getHijriDate } from '../utils/hijri';
 import { loadArabicText, loadDailyHadithOrBundled, loadRandomHadith, loadRandomTopicHadith, loadTopics, HadithTopic, describeHadith } from '../utils/hadithLibrary';
 import { GradeBadge } from './GradeBadge';
 import { HijriAdjust } from './HijriAdjust';
+import { ScrollArrows } from './ScrollArrows';
 import { PrayerPhaseOverlay, getPrayerPhase, quranMayContinue, shouldPlayIqamah } from './PrayerPhaseOverlay';
 import { QuranDialog, QuranNowPlaying, useQuranPlayer } from './QuranPlayer';
 import { getHadithLanguage, useDisplayedHadith, useHadithLanguage, useUiLanguage, setUiLanguage, HadithLanguage } from '../hooks/useHadithLanguage';
@@ -567,6 +568,7 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose,
   };
 
   const openDialogOf = (kind: 'mosque' | 'azan' | 'topic' | 'language' | 'quran') => {
+    if (kind === 'mosque') setPickerState(null);
     window.history.pushState({ tvDialog: true }, '');
     setOpenDialog(kind);
   };
@@ -660,6 +662,14 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose,
   const mosquesByState = getAllMosques()
     .slice()
     .sort((a, b) => a.state.localeCompare(b.state) || a.name.localeCompare(b.name));
+  // The picker shows one state at a time (tabs along the top), so the remote only scrolls
+  // through that state's mosques; it opens on the selected mosque's state
+  const pickerStates = [...new Set(mosquesByState.map((m) => m.state))];
+  const [pickerState, setPickerState] = useState<string | null>(null);
+  const pickerStateButtonRef = useRef<HTMLButtonElement>(null);
+  const pickerListRef = useRef<HTMLDivElement>(null);
+  const shownPickerState = pickerState ?? selectedMosque.state;
+  const pickerMosques = mosquesByState.filter((m) => m.state === shownPickerState);
 
 
   // The Hadith in the chosen language; a language switch starts again from the full text
@@ -1068,8 +1078,41 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose,
                 <X className="w-8 h-8" />
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-4 overflow-y-auto pr-2 p-2">
-              {mosquesByState.map((m) => {
+            {pickerStates.length > 1 && (
+              // Full width, so Up from any column of the list reaches a state
+              <div className="flex flex-wrap gap-3 mb-5 p-2">
+                {pickerStates.map((s) => {
+                  const isShown = s === shownPickerState;
+                  const count = mosquesByState.filter((m) => m.state === s).length;
+                  return (
+                    <button
+                      key={s}
+                      ref={isShown ? pickerStateButtonRef : undefined}
+                      // Moving onto a state shows its mosques straight away; Down goes into them.
+                      // Up from the list lands on the state shown, not whichever one is above.
+                      onFocus={(e) => {
+                        if (!isShown && pickerListRef.current?.contains(e.relatedTarget as Node | null)) {
+                          pickerStateButtonRef.current?.focus();
+                        } else {
+                          setPickerState(s);
+                        }
+                      }}
+                      onClick={() => setPickerState(s)}
+                      className={`flex-1 px-4 py-3 rounded-2xl border text-[24px] font-semibold whitespace-nowrap transition cursor-pointer ${
+                        isShown
+                          ? 'bg-amber-500/20 border-amber-400 text-white'
+                          : 'bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'
+                      }`}
+                    >
+                      {s} <span className="text-[20px] font-normal text-neutral-400">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <div className="flex gap-4 min-h-0">
+            <div ref={pickerListRef} data-tv-center-focus className={`flex-1 grid ${phone ? 'grid-cols-3' : 'grid-cols-4'} gap-4 overflow-y-auto pr-2 p-2`}>
+              {pickerMosques.map((m) => {
                 const isSelected = m.id === selectedMosque.id;
                 return (
                   <button
@@ -1087,6 +1130,8 @@ export const SmartTvDisplayView: React.FC<SmartTvDisplayViewProps> = ({ onClose,
                   </button>
                 );
               })}
+            </div>
+            {pickerMosques.length > (phone ? 9 : 8) && <ScrollArrows listRef={pickerListRef} t={t} />}
             </div>
           </div>
         </div>
