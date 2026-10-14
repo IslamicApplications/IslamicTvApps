@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SURAHS, arabicVolume, canAddEnglish, resumeAfterEnglish, cleanTranslation, englishVerseUrl, firstVerseNumber, getQuranSettings, hasVerseTimings, isEnglishReciter, loadRecitation, resumeStartSeconds, resumeTrack, saveQuranSettings, verseAt, verseToTranslate } from '../src/shared/utils/quran';
+import { SURAHS, arabicVolume, canAddEnglish, resumeAfterEnglish, cleanTranslation, englishVerseUrl, firstVerseNumber, getQuranSettings, hasSurah, hasVerseTimings, isEnglishReciter, loadRecitation, resumeStartSeconds, resumeTrack, saveQuranSettings, stepSurah, verseAt, verseToTranslate } from '../src/shared/utils/quran';
 import { formatDuration } from '../src/shared/components/QuranPlayer';
 
 describe('quran', () => {
@@ -31,6 +31,22 @@ describe('quran', () => {
     expect(hasVerseTimings(7)).toBe(true);
     expect(await loadRecitation(2919, 1)).toEqual({ url: 'https://podcasts.qurancentral.com/muhammad-al-faqih/001.mp3', timings: [] });
     expect((await loadRecitation(2919, 114)).url).toBe('https://podcasts.qurancentral.com/muhammad-al-faqih/114.mp3');
+  });
+
+  it('streams Islam Sobhi from mp3quran.net, skipping the surahs he has not got', async () => {
+    expect(hasVerseTimings(9201)).toBe(false);
+    expect(canAddEnglish(9201)).toBe(false);
+    expect(await loadRecitation(9201, 1)).toEqual({ url: 'https://cdn.mp3quran.net/audio/islam-sobhi/r1/001.mp3', timings: [] });
+    expect((await loadRecitation(9201, 114)).url).toBe('https://cdn.mp3quran.net/audio/islam-sobhi/r1/114.mp3');
+    expect(hasSurah(9201, 1)).toBe(true);
+    expect(hasSurah(9201, 37)).toBe(false);
+    expect(hasSurah(7, 37)).toBe(true);
+    expect(stepSurah(9201, 37, 0)).toBe(38);
+    expect(stepSurah(9201, 38, 1)).toBe(41);
+    expect(stepSurah(9201, 41, -1)).toBe(38);
+    expect(stepSurah(9201, 66, -1)).toBe(64);
+    expect(stepSurah(9201, 114, 1)).toBe(1);
+    expect(stepSurah(7, 1, -1)).toBe(114);
   });
 
   it('numbers verses through the whole Quran', () => {

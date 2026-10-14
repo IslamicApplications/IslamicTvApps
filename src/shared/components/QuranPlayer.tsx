@@ -15,6 +15,7 @@ import {
   englishVerseUrl,
   getQuranPosition,
   getQuranSettings,
+  hasSurah,
   hasVerseTimings,
   isEnglishReciter,
   loadRecitation,
@@ -24,6 +25,7 @@ import {
   resumeTrack,
   saveQuranPosition,
   saveQuranSettings,
+  stepSurah,
   verseAt,
   verseToTranslate
 } from '../utils/quran';
@@ -175,9 +177,10 @@ export function useQuranPlayer(): QuranPlayer {
 
   const play = useCallback(
     async (surahNumber?: number, from?: QuranPosition | null) => {
-      const n = surahNumber ?? settingsRef.current.surah;
-      if (from?.surah !== n) from = null;
       const reciter = settingsRef.current.reciter;
+      // A surah the reciter hasn't got: the next one he has
+      const n = stepSurah(reciter, surahNumber ?? settingsRef.current.surah, 0);
+      if (from?.surah !== n) from = null;
       const token = ++tokenRef.current;
       const audio = getAudio();
       audio.pause();
@@ -291,10 +294,10 @@ export function useQuranPlayer(): QuranPlayer {
   }, [error, resume]);
 
   const next = useCallback(() => {
-    if (!isRepeat('next')) play(settingsRef.current.surah >= 114 ? 1 : settingsRef.current.surah + 1);
+    if (!isRepeat('next')) play(stepSurah(settingsRef.current.reciter, settingsRef.current.surah, 1));
   }, [play]);
   const previous = useCallback(() => {
-    if (!isRepeat('previous')) play(settingsRef.current.surah <= 1 ? 114 : settingsRef.current.surah - 1);
+    if (!isRepeat('previous')) play(stepSurah(settingsRef.current.reciter, settingsRef.current.surah, -1));
   }, [play]);
 
   const pauseForPrayer = useCallback(() => {
@@ -743,7 +746,10 @@ export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose,
 
   // Where the last recitation of the current surah stopped (e.g. before the app was closed)
   const savedPosition = getQuranPosition();
-  const saved = savedPosition?.surah === settings.surah && savedPosition.time > 10 ? savedPosition : null;
+  const saved =
+    savedPosition?.surah === settings.surah && savedPosition.time > 10 && hasSurah(settings.reciter, savedPosition.surah) ? savedPosition : null;
+  // The surah shown as chosen: for a reciter without the chosen surah, the next one he has
+  const chosenSurah = stepSurah(settings.reciter, settings.surah, 0);
   const reciterRowRef = useRef<HTMLDivElement>(null);
   const surahListRef = useRef<HTMLDivElement>(null);
   const reciterIndex = Math.max(0, RECITERS.findIndex((r) => r.id === settings.reciter));
@@ -876,7 +882,9 @@ export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose,
         <div className="flex gap-4 min-h-0">
         <div ref={surahListRef} data-tv-center-focus className={`flex-1 grid ${phone ? 'grid-cols-3' : 'grid-cols-6'} gap-3 overflow-y-auto p-2`}>
           {SURAHS.map((s) => {
-            const selected = s.n === settings.surah;
+            const selected = s.n === chosenSurah;
+            // Greyed out (and skipped by the remote) when the reciter hasn't recited it
+            const available = hasSurah(settings.reciter, s.n);
             return (
               <button
                 key={s.n}
@@ -885,8 +893,11 @@ export const QuranDialog: React.FC<QuranDialogProps> = ({ player, i18n, onClose,
                   player.play(s.n);
                   onPlay();
                 }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-start cursor-pointer border ${
-                  selected ? 'bg-amber-500 text-neutral-950 border-amber-400' : 'bg-white/5 hover:bg-white/15 text-white border-white/10'
+                disabled={!available}
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-start border ${
+                  !available
+                    ? 'bg-white/5 text-neutral-500 border-white/5 opacity-40 cursor-not-allowed'
+                    : selected ? 'bg-amber-500 text-neutral-950 border-amber-400 cursor-pointer' : 'bg-white/5 hover:bg-white/15 text-white border-white/10 cursor-pointer'
                 }`}
               >
                 <span className={`shrink-0 w-11 text-[20px] font-mono font-bold ${selected ? 'text-neutral-900' : 'text-amber-400'}`}>{s.n}</span>

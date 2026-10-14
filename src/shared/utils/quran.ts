@@ -2,7 +2,7 @@
  * Quran recitation for the TV, from the Quran Foundation's public Quran.com API
  * (https://api-docs.quran.foundation). Audio is streamed from quranicaudio.com;
  * the verse timings let the screen show the verse being recited. A few reciters
- * stream from Quran Central (qurancentral.com) instead, without verse timings, and the
+ * stream from Quran Central (qurancentral.com) or mp3quran.net instead, without verse timings, and the
  * English translations from the Islamic Network's CDN (the files api.alquran.cloud lists),
  * the Oromo translation from the Internet Archive, and the Somali translation verse by verse
  * from QuranEnc (quranenc.com).
@@ -34,6 +34,10 @@ export interface Reciter {
    * request names another site as the referrer, so index.html sets `no-referrer`.
    */
   quranCentral?: string;
+  /** mp3quran.net reciter: its folder on cdn.mp3quran.net, one file per surah (001.mp3 …), no verse timings. */
+  mp3Quran?: string;
+  /** The only surahs this reciter has (all 114 when not given); the others are skipped. */
+  surahs?: number[];
   /**
    * Quran.com's verse timings are for another recording than its audio (Maher al-Mu'aiqly:
    * Al-Fatihah's end at 37 s of 63 s): played without them, like Quran Central's.
@@ -87,6 +91,14 @@ export const RECITERS: Reciter[] = [
   { id: 13, name: "Sa'd al-Ghamdi", nameAr: 'سعد الغامدي' },
   { id: 5, name: "Hani ar-Rifa'i", nameAr: 'هاني الرفاعي' },
   { id: 2919, name: 'Muhammad al-Faqih', nameAr: 'محمد الفقيه', quranCentral: 'muhammad-al-faqih' },
+  // mp3quran.net has 109 of his surahs (www.mp3quran.net/api/v3/reciters, reciter 253)
+  {
+    id: 9201,
+    name: 'Islam Sobhi',
+    nameAr: 'إسلام صبحي',
+    mp3Quran: 'islam-sobhi/r1',
+    surahs: Array.from({ length: 114 }, (_, i) => i + 1).filter((n) => ![37, 39, 40, 45, 65].includes(n))
+  },
   // English translations (ids of our own, above Quran.com's)
   { id: 9001, name: 'English: Ibrahim Walk (Saheeh International)', nameAr: 'ترجمة إنجليزية: إبراهيم ووك (صحيح إنترناشونال)', islamicNetwork: 'en.walk', verseByVerse: true, english: true },
   { id: 9002, name: 'Alafasy + English (Saheeh International)', nameAr: 'العفاسي + ترجمة إنجليزية (صحيح إنترناشونال)', islamicNetwork: 'en.misharyrashidalafasyenglishtranslationsaheehibrahimwalk', english: true },
@@ -111,10 +123,30 @@ export const RECITERS: Reciter[] = [
   }
 ];
 
+/** The reciter has a recitation of this surah. */
+export function hasSurah(reciter: number, surah: number): boolean {
+  const surahs = RECITERS.find((r) => r.id === reciter)?.surahs;
+  return !surahs || surahs.includes(surah);
+}
+
+/**
+ * The surah to play for this reciter: `surah` itself (step 0) or the one after it (1) or
+ * before it (-1), going round from An-Nas to Al-Fatihah, skipping surahs the reciter hasn't got.
+ */
+export function stepSurah(reciter: number, surah: number, step: -1 | 0 | 1): number {
+  const by = step || 1;
+  let n = step ? surah + step : surah;
+  for (let i = 0; i < 114; i++, n += by) {
+    n = ((n - 1 + 114) % 114) + 1;
+    if (hasSurah(reciter, n)) return n;
+  }
+  return surah;
+}
+
 /** False for reciters whose recitations have no verse timings (the verse can't be followed). */
 export function hasVerseTimings(reciter: number): boolean {
   const r = RECITERS.find((r) => r.id === reciter);
-  return !r?.quranCentral && !r?.archive && !r?.timingsOff && (!r?.islamicNetwork || !!r.verseByVerse);
+  return !r?.quranCentral && !r?.mp3Quran && !r?.archive && !r?.timingsOff && (!r?.islamicNetwork || !!r.verseByVerse);
 }
 
 /**
@@ -123,7 +155,7 @@ export function hasVerseTimings(reciter: number): boolean {
  */
 export function canAddEnglish(reciter: number): boolean {
   const r = RECITERS.find((r) => r.id === reciter);
-  return !!r && !r.quranCentral && !r.islamicNetwork && !r.archive && !r.quranEnc && !r.timingsOff && !r.roughTimings;
+  return !!r && !r.quranCentral && !r.mp3Quran && !r.islamicNetwork && !r.archive && !r.quranEnc && !r.timingsOff && !r.roughTimings;
 }
 
 /** Ibrahim Walk's English (LUFS); a browser can't make audio louder, so a louder reciter is turned down */
@@ -301,6 +333,9 @@ export function loadRecitation(reciter: number, surah: number): Promise<Recitati
   const r = RECITERS.find((r) => r.id === reciter);
   if (r?.quranCentral) {
     return Promise.resolve({ url: `https://podcasts.qurancentral.com/${r.quranCentral}/${String(surah).padStart(3, '0')}.mp3`, timings: [] });
+  }
+  if (r?.mp3Quran) {
+    return Promise.resolve({ url: `https://cdn.mp3quran.net/audio/${r.mp3Quran}/${String(surah).padStart(3, '0')}.mp3`, timings: [] });
   }
   if (r?.archive) {
     return Promise.resolve({ url: `https://archive.org/download/${r.archive.item}/${encodeURIComponent(r.archive.files[surah - 1])}`, timings: [] });
